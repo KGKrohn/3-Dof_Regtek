@@ -157,6 +157,8 @@ def servo_control(key2, queue):
             output_y = error_y * kp
         return output_x, output_y
 
+    def PID_controler(pos_x, pos_y):
+        start_time = time.time()
     def ballpos_to_servo_angle(x_pos, y_pos):
         x_cord, y_cord = P_Reg(x_pos, y_pos)
 
