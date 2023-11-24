@@ -9,7 +9,7 @@ This code can be used for controlling servos by using a simple controller.
 
 #define the port of the arduino. each system may have its own port id
 #NOTE: This can be found from going to arduino ide --> Tools --> Ports
-port_id = 'COM4'
+port_id = 'COM3'
 
 #initialise serial interface
 arduino = serial.Serial(port=port_id, baudrate=250000, timeout=0.1)

@@ -153,17 +153,6 @@ def servo_control(key2, queue):
 
         return angle1, angle2, angle3
 
-
-    def all_angle_assign(angle_passed1,angle_passed2,angle_passed3):
-        global servo1_angle, servo2_angle, servo3_angle
-        servo1_angle = math.radians(float(angle_passed1))
-        servo2_angle = math.radians(float(angle_passed2))
-        servo3_angle = math.radians(float(angle_passed3))
-        write_servo(angle_passed1, angle_passed2, angle_passed3)
-
-    root = Tk()
-    root.resizable(0, 0)
-
     Kp = 1.7
     Ki = 1
     Kd = 1
@@ -178,27 +167,42 @@ def servo_control(key2, queue):
             output_x = 0
             output_y = 0
         else:
-            error_x = refferanse_x + float(positions[0])
-            error_y = refferanse_y + float(positions[1])
+            error_x = refferanse_x - float(positions[0])
+            error_y = refferanse_y - float(positions[1])
             output_x = error_x * Kp
             output_y = error_y * Kp
 
         return output_x, output_y
 
+    def all_angle_assign(angle_passed1, angle_passed2, angle_passed3):
+        #global servo1_angle, servo2_angle, servo3_angle
+        #servo1_angle = math.radians(float(angle_passed1))
+        #servo2_angle = math.radians(float(angle_passed2))
+        #servo3_angle = math.radians(float(angle_passed3))
+        write_servo(angle_passed1, angle_passed2, angle_passed3)
+
+    root = Tk()
+    root.resizable(0, 0)
+
+    def scaling(value, iMin, iMax, qMin, qMax):
+        return qMin + (((value - (iMin)) / (iMax - iMin)) * (qMax - qMin))
+
 
     def writeCoord():
         corrd_info = queue.get()
         x_cord, y_cord = P_Reg(corrd_info)
-        print(x_cord, y_cord)
-        xangle = math.radians(y_cord)
-        yangle = math.radians(x_cord)
-        ang1, ang2, ang3 = rotatematrix(0, 0, xangle, yangle)
-        print("angle",np.rad2deg(ang1)," ",np.rad2deg(ang2)," ",np.rad2deg(ang3))
+        x_ang = scaling(x_cord,iMin=28, iMax=-28, qMin=-20, qMax=20)
+        y_ang = scaling(y_cord, iMin=28, iMax=-28, qMin=-20, qMax=20)
+        #print(x_cord, y_cord)
+        xangle = np.deg2rad(x_ang)
+        yangle = np.deg2rad(y_ang)
+        ang1, ang2, ang3 = rotatematrix(0, 22, -yangle, -xangle)
+        print("angle", np.rad2deg(ang1), " ", np.rad2deg(ang2)," ",np.rad2deg(ang3))
         if corrd_info == 'nil': # Checks if the output is nil
             x = 1
             #print('cant fins the ball :(')
         else:
-            print('The position of the ball : ', corrd_info[0] , corrd_info[1], corrd_info[2])
+            #print('The position of the ball : ', corrd_info[0] , corrd_info[1], corrd_info[2])
 
             if (-90 < np.rad2deg(ang1) < 90) and (-90 < np.rad2deg(ang2) < 90) and (-90 < np.rad2deg(ang3) < 90):
 
@@ -207,11 +211,13 @@ def servo_control(key2, queue):
                 all_angle_assign(0,0,0)
 
     def write_arduino(data):
-        #print('The angles send to the arduino : ', data)
+        print('The angles send to the arduino : ', data)
         arduino.write(bytes(data, 'utf-8'))
 
-    def write_servo(rad1, rad2, rad3):
-        angles: tuple = (rad1), (rad2), (rad3)
+    def write_servo(ang1, ang2, ang3):
+        angles: tuple = (round(ang1, 1),
+                         round(ang2, 1),
+                         round(ang3, 1))
         write_arduino(str(angles))
 
     while key2:
