@@ -5,14 +5,8 @@ import numpy as np
 from cvzone.ColorModule import ColorFinder
 import cv2
 import serial
-import math
 import time
 from tkinter import *
-
-# -------------------------------------------Both programs(Servo Control and Ball Tracker) in one -------------------------------------------
-"""
-For running both programs simultaneously we can use multithreading or multiprocessing
-"""
 
 hmin_v = 21
 hmax_v = 45
@@ -40,12 +34,7 @@ servo3_angle_limit_positive = 40
 servo3_angle_limit_negative = -53
 
 
-
 def ball_track(key1, queue):
-    # prevtime
-    prev_frame_time = 0
-    # used to record the time at which we processed current frame
-    new_frame_time = 0
     camera_port = 0
     cap = cv2.VideoCapture(camera_port, cv2.CAP_DSHOW)
     cap.set(3, 1280)
@@ -57,49 +46,39 @@ def ball_track(key1, queue):
     if key1:
         print('Ball tracking is initiated')
 
-    myColorFinder = ColorFinder(False)  # if you want to find the color and calibrate the program we use this *(Debugging)
+    myColorFinder = ColorFinder(
+        False)  # if you want to find the color and calibrate the program we use this *(Debugging)
     hsvVals = {'hmin': hmin_v, 'smin': smin_v, 'vmin': vmin_v, 'hmax': hmax_v, 'smax': smax_v,
                'vmax': vmax_v}
 
-    center_point = [640, 360, 2210] # center point of the plate, calibrated
+    center_point = [640, 360, 2210]  # center point of the plate, calibrated
 
     while True:
         get, img = cap.read()
         mask_plat = np.zeros(img.shape[:2], dtype='uint8')
         cv2.circle(mask_plat, (640, 360), 300, (255, 255, 255), -1)
 
-        #find fps to calculate distance for ball
-        #new_frame_time = time.time()
-        #fps = 1 / (new_frame_time - prev_frame_time)
-        #prev_frame_time = new_frame_time
-        # converting the fps into integer
-        #fps = int(fps)
-        #print(fps)
-
-        #fps_2 = int(cap.get(cv2.CAP_PROP_FPS))
-        #print("Print fps2  ", fps_2)
-
-        #Make circular mask
+        # Make circular mask
         masked = cv2.bitwise_and(img, img, mask=mask_plat)
         imgColor, mask = myColorFinder.update(masked, hsvVals)
         imgContour, countours = cvzone.findContours(masked, mask, minArea=3000, maxArea=5500)
 
         if countours:
             data = round((countours[0]['center'][0] - center_point[0]) / 10), \
-                   round((h - countours[0]['center'][1] - center_point[1]) / 10), \
-                   round(int(countours[0]['area'] - center_point[2])/100)
+                round((h - countours[0]['center'][1] - center_point[1]) / 10), \
+                round(int(countours[0]['area'] - center_point[2]) / 100)
 
             queue.put(data)
-            #print("queue put", queue.get())
-            #print("The got coordinates for the ball are :", data)
         else:
-            data = 'nil' # returns nil if we cant find the ball
+            data = 'nil'  # returns nil if we cant find the ball
             queue.put(data)
 
         imgStack = cvzone.stackImages([imgContour], 1, 1)
-        mgStack = cvzone.stackImages([img,imgColor, mask, imgContour],2,0.5) #use for calibration and correction
+        # mgStack = cvzone.stackImages([img, imgColor, mask, imgContour], 2, 0.5)  # use for calibration and correction
         cv2.imshow("Image", imgStack)
         cv2.waitKey(1)
+
+
 def servo_control(key2, queue):
     port_id = 'COM4'
     # initialise serial interface
@@ -144,8 +123,8 @@ def servo_control(key2, queue):
         # Perform matrix multiplication
         all_the_rot = np.dot(rotations_matrix, newpos)
 
-        #print(rotZ, rotY, rotX)
-        #print(all_the_rot[0, 2] / R, all_the_rot[1, 2] / R, all_the_rot[2, 2] / R)
+        # print(rotZ, rotY, rotX)
+        # print(all_the_rot[0, 2] / R, all_the_rot[1, 2] / R, all_the_rot[2, 2] / R)
 
         angle1 = np.arcsin((all_the_rot[2, 0]) + Z / R)
         angle2 = np.arcsin((all_the_rot[2, 1]) + Z / R)
@@ -153,66 +132,49 @@ def servo_control(key2, queue):
 
         return angle1, angle2, angle3
 
-    Kp = 1.7
-    Ki = 1
-    Kd = 1
-    refferanse_x = 0
-    refferanse_y = 0
-    output_x=0
-    output_y=0
-    error_x = 0
-    error_y=0
-    def P_Reg(positions):
-        if (positions== 'nil'):
+    root = Tk()
+
+    # root.resizable(0,0)
+
+    def map_x_to_y(value, x_min, x_max, y_min, y_max):
+        return y_min + (((value - x_min) / (x_max - x_min)) * (y_max - y_min))
+
+    def get_ball_pos():
+        corrd_info = queue.get()
+        return corrd_info[0], corrd_info[1]
+
+    def P_Reg(pos_x, pos_y):  # out = kp*e   e = reff - pos
+        kp = 1.7
+        reff_val_x = 0
+        reff_val_y = 0
+        if (pos_x == 'nil') or (pos_y == 'nil'):
             output_x = 0
             output_y = 0
         else:
-            error_x = refferanse_x - float(positions[0])
-            error_y = refferanse_y - float(positions[1])
-            output_x = error_x * Kp
-            output_y = error_y * Kp
-
+            error_x = reff_val_x - pos_x
+            error_y = reff_val_y - pos_y
+            output_x = error_x * kp
+            output_y = error_y * kp
         return output_x, output_y
 
-    def all_angle_assign(angle_passed1, angle_passed2, angle_passed3):
-        #global servo1_angle, servo2_angle, servo3_angle
-        #servo1_angle = math.radians(float(angle_passed1))
-        #servo2_angle = math.radians(float(angle_passed2))
-        #servo3_angle = math.radians(float(angle_passed3))
-        write_servo(angle_passed1, angle_passed2, angle_passed3)
+    def ballpos_to_servo_angle(x_pos, y_pos):
+        x_cord, y_cord = P_Reg(x_pos, y_pos)
 
-    root = Tk()
-    root.resizable(0, 0)
+        # convert the distance to center to angle.
+        x_ang = map_x_to_y(x_cord, x_min=28, x_max=-28, y_min=-20, y_max=20)
+        y_ang = map_x_to_y(y_cord, x_min=28, x_max=-28, y_min=-20, y_max=20)
 
-    def scaling(value, iMin, iMax, qMin, qMax):
-        return qMin + (((value - (iMin)) / (iMax - iMin)) * (qMax - qMin))
+        # x and y angle(deg) in and servoangle out(rad)
+        servo_ang1, servo_ang2, servo_ang3 = rotatematrix(0, 22, y_ang, x_ang)
+        # print("angle", np.rad2deg(servo_ang1), " ", np.rad2deg(servo_ang2), " ", np.rad2deg(servo_ang3))
 
+        return np.rad2deg(servo_ang1), np.rad2deg(servo_ang2), np.rad2deg(servo_ang3)
 
-    def writeCoord():
-        corrd_info = queue.get()
-        x_cord, y_cord = P_Reg(corrd_info)
-        x_ang = scaling(x_cord,iMin=28, iMax=-28, qMin=-20, qMax=20)
-        y_ang = scaling(y_cord, iMin=28, iMax=-28, qMin=-20, qMax=20)
-        #print(x_cord, y_cord)
-        xangle = np.deg2rad(x_ang)
-        yangle = np.deg2rad(y_ang)
-        ang1, ang2, ang3 = rotatematrix(0, 22, -yangle, -xangle)
-        print("angle", np.rad2deg(ang1), " ", np.rad2deg(ang2)," ",np.rad2deg(ang3))
-        if corrd_info == 'nil': # Checks if the output is nil
-            x = 1
-            #print('cant fins the ball :(')
+    def filter_write_angle_servo(servo1_angle_deg, servo2_angle_deg, servo3_angle_deg):
+        if (-90 < servo1_angle_deg < 90) and (-90 < servo2_angle_deg < 90) and (-90 < servo3_angle_deg < 90):
+            write_servo(servo1_angle_deg, servo2_angle_deg, servo3_angle_deg)
         else:
-            #print('The position of the ball : ', corrd_info[0] , corrd_info[1], corrd_info[2])
-
-            if (-90 < np.rad2deg(ang1) < 90) and (-90 < np.rad2deg(ang2) < 90) and (-90 < np.rad2deg(ang3) < 90):
-
-                all_angle_assign(np.rad2deg(ang1), np.rad2deg(ang2), np.rad2deg(ang3))
-            else:
-                all_angle_assign(0,0,0)
-
-    def write_arduino(data):
-        print('The angles send to the arduino : ', data)
-        arduino.write(bytes(data, 'utf-8'))
+            write_servo(0, 0, 0)
 
     def write_servo(ang1, ang2, ang3):
         angles: tuple = (round(ang1, 1),
@@ -220,16 +182,23 @@ def servo_control(key2, queue):
                          round(ang3, 1))
         write_arduino(str(angles))
 
+    def write_arduino(data):
+        print('The angles send to the arduino : ', data)
+        arduino.write(bytes(data, 'utf-8'))
+
     while key2:
-        writeCoord()
+        pos_x, pos_y = get_ball_pos()  # Ballpos
+        servo_ang1, servo_ang2, servo_ang3 = ballpos_to_servo_angle(pos_x, pos_y)  # Ballpos to servo angle
+        filter_write_angle_servo(servo_ang1, servo_ang2, servo_ang3)  # Servo angle to arduino
     root.mainloop()  # running loop
 
+
 if __name__ == '__main__':
-    queue = Queue() # The queue is done inorder for the communication between the two processes.
-    key1 = 1 # just two dummy arguments passed for the processes
+    queue = Queue()  # The queue is done inorder for the communication between the two processes.
+    key1 = 1  # just two dummy arguments passed for the processes
     key2 = 2
-    p1 = mp.Process(target=ball_track, args=(key1, queue)) # initiate ball tracking process
-    p2 = mp.Process(target=servo_control, args=(key2, queue)) # initiate servo controls
+    p1 = mp.Process(target=ball_track, args=(key1, queue))  # initiate ball tracking process
+    p2 = mp.Process(target=servo_control, args=(key2, queue))  # initiate servo controls
     p1.start()
     p2.start()
     p1.join()

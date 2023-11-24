@@ -41,8 +41,16 @@ def P_Reg():
     return output_x, output_y
 
 
+# find fps to calculate distance for ball
+# new_frame_time = time.time()
+# fps = 1 / (new_frame_time - prev_frame_time)
+# prev_frame_time = new_frame_time
+# converting the fps into integer
+# fps = int(fps)
+# print(fps)
 
-
+# fps_2 = int(cap.get(cv2.CAP_PROP_FPS))
+# print("Print fps2  ", fps_2)
 
 
 
