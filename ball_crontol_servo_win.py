@@ -140,21 +140,26 @@ def servo_control(key2, queue):
         return y_min + (((value - x_min) / (x_max - x_min)) * (y_max - y_min))
 
     def get_ball_pos():
-        corrd_info = queue.get()
-        return corrd_info[0], corrd_info[1]
+        cord_info = queue.get()
+        cord_x = cord_info[0]
+        cord_y = cord_info[1]
+        if cord_info == 'nil':
+            cord_x = 0
+            cord_y = 0
+        return cord_x, cord_y
 
     def P_Reg(pos_x, pos_y):  # out = kp*e   e = reff - pos
         kp = 1.7
         reff_val_x = 0
         reff_val_y = 0
         if (pos_x == 'nil') or (pos_y == 'nil'):
-            output_x = 0
-            output_y = 0
-        else:
-            error_x = reff_val_x - pos_x
-            error_y = reff_val_y - pos_y
-            output_x = error_x * kp
-            output_y = error_y * kp
+            pos_x = 0
+            pos_y = 0
+
+        error_x = reff_val_x - pos_x
+        error_y = reff_val_y - pos_y
+        output_x = error_x * kp
+        output_y = error_y * kp
         return output_x, output_y
 
     def PID_controler(pos_x, pos_y):
