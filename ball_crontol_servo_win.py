@@ -33,9 +33,6 @@ servo3_angle_zero = 0
 servo3_angle_limit_positive = 40
 servo3_angle_limit_negative = -53
 
-
-
-
 def ball_track(key1, queue):
     camera_port = 0
     cap = cv2.VideoCapture(camera_port, cv2.CAP_DSHOW)
@@ -187,9 +184,9 @@ def servo_control(key2, queue):
         print('The angles send to the arduino : ', data)
         arduino.write(bytes(data, 'utf-8'))
 
-    kp = 1
-    ki = 1
-    kd = 1
+    kp = 1.3
+    ki = 0.64
+    kd = 1.356
     reff_val_x = 0
     reff_val_y = 0
     integral_error_x = 0
