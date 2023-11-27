@@ -8,11 +8,11 @@ import serial
 import time
 from tkinter import *
 
-hmin_v = 21
-hmax_v = 45
-smin_v = 123
+hmin_v = 30
+hmax_v = 100
+smin_v = 100
 smax_v = 255
-vmin_v = 193
+vmin_v = 100
 vmax_v = 255
 # define servo angles and set a value
 servo1_angle = 0
@@ -34,7 +34,7 @@ servo3_angle_limit_positive = 40
 servo3_angle_limit_negative = -53
 
 def ball_track(key1, queue):
-    camera_port = 0
+    camera_port = 1
     cap = cv2.VideoCapture(camera_port, cv2.CAP_DSHOW)
     cap.set(3, 1280)
     cap.set(4, 720)
@@ -46,7 +46,7 @@ def ball_track(key1, queue):
         print('Ball tracking is initiated')
 
     myColorFinder = ColorFinder(
-        False)  # if you want to find the color and calibrate the program we use this *(Debugging)
+        FALSE)  # if you want to find the color and calibrate the program we use this *(Debugging)
     hsvVals = {'hmin': hmin_v, 'smin': smin_v, 'vmin': vmin_v, 'hmax': hmax_v, 'smax': smax_v,
                'vmax': vmax_v}
 
@@ -55,8 +55,8 @@ def ball_track(key1, queue):
     while True:
         get, img = cap.read()
         mask_plat = np.zeros(img.shape[:2], dtype='uint8')
-        cv2.circle(mask_plat, (640, 360), 300, (255, 255, 255), -1)
-        cv2.circle(mask_plat, (640, 360), 5, (0, 255, 255), -1)
+        cv2.circle(mask_plat, (640, 360), 350, (255, 255, 255), -1)
+        cv2.circle(mask_plat, (640, 360), 2, (255, 0, 0), -1)
         dt = time.time() - start_time
         #print("dt: kamera ", dt)
 
@@ -84,7 +84,7 @@ def ball_track(key1, queue):
 
 
 def servo_control(key2, queue):
-    port_id = 'COM4'
+    port_id = 'COM3'
     # initialise serial interface
     arduino = serial.Serial(port=port_id, baudrate=250000, timeout=0.1)
 
@@ -192,9 +192,9 @@ def servo_control(key2, queue):
         #print('The angles send to the arduino : ', data)
         arduino.write(bytes(data, 'utf-8'))
 
-    kp = 0.35
-    ki = 0.8
-    kd = 0.25
+    kp = 0.3
+    ki = 0.1
+    kd = 0.15
     reff_val_x = 0
     reff_val_y = 0
     integral_error_x = 0
