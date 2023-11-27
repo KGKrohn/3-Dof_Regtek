@@ -51,14 +51,18 @@ def ball_track(key1, queue):
                'vmax': vmax_v}
 
     center_point = [640, 360, 2210]  # center point of the plate, calibrated
-
+    start_time = 0
     while True:
         get, img = cap.read()
         mask_plat = np.zeros(img.shape[:2], dtype='uint8')
         cv2.circle(mask_plat, (640, 360), 300, (255, 255, 255), -1)
+        cv2.circle(mask_plat, (640, 360), 5, (0, 255, 255), -1)
+        dt = time.time() - start_time
+        #print("dt: kamera ", dt)
 
         # Make circular mask
         masked = cv2.bitwise_and(img, img, mask=mask_plat)
+
         imgColor, mask = myColorFinder.update(masked, hsvVals)
         imgContour, countours = cvzone.findContours(masked, mask, minArea=2000, maxArea=5500)
 
@@ -75,6 +79,7 @@ def ball_track(key1, queue):
         imgStack = cvzone.stackImages([imgContour], 1, 1)
         # mgStack = cvzone.stackImages([img, imgColor, mask, imgContour], 2, 0.5)  # use for calibration and correction
         cv2.imshow("Image", imgStack)
+        start_time = time.time()
         cv2.waitKey(1)
 
 
@@ -87,7 +92,7 @@ def servo_control(key2, queue):
         print('Servo controls are initiated')
 
     def kinematics(Z, rotZdeg, rotYdeg, rotXdeg):
-        L = 24
+        L = 23.5
         R = 4
 
         # Convert degrees to radians
@@ -143,6 +148,7 @@ def servo_control(key2, queue):
 
     def get_ball_pos():
         cord_info = queue.get()
+        print("Yooooo: ", cord_info[0], " ", cord_info[1])
         return cord_info
 
     def P_Reg(pos_x, pos_y):  # out = kp*e   e = reff - pos
@@ -159,15 +165,14 @@ def servo_control(key2, queue):
         output_y = error_y * kp
         return output_x, output_y
 
-
     def ballpos_to_servo_angle(x_cord, y_cord):
         # convert the distance to center to angle.
-        x_ang = map_x_to_y(x_cord, x_min=28, x_max=-28, y_min=-20, y_max=20)
-        y_ang = map_x_to_y(y_cord, x_min=28, x_max=-28, y_min=-20, y_max=20)
+        x_ang = map_x_to_y(x_cord, x_min=28.00, x_max=-28.00, y_min=-20.00, y_max=20.00)
+        y_ang = map_x_to_y(y_cord, x_min=28.00, x_max=-28.00, y_min=-20.00, y_max=20.00)
 
         # x and y angle(deg) in and servoangle out(rad)
-        servo_ang1, servo_ang2, servo_ang3 = kinematics(0, 22, y_ang, x_ang)
-        print("angle", servo_ang1, " ", (servo_ang2), " ", (servo_ang3))
+        servo_ang1, servo_ang2, servo_ang3 = kinematics(0, 22, -y_cord, -x_cord)
+        #print("angle", servo_ang1, " ", (servo_ang2), " ", (servo_ang3))
 
         return servo_ang1, servo_ang2, servo_ang3
 
@@ -184,12 +189,12 @@ def servo_control(key2, queue):
         write_arduino(str(angles))
 
     def write_arduino(data):
-        print('The angles send to the arduino : ', data)
+        #print('The angles send to the arduino : ', data)
         arduino.write(bytes(data, 'utf-8'))
 
-    kp = 1
-    ki = 1
-    kd = 1
+    kp = 0.35
+    ki = 0.8
+    kd = 0.25
     reff_val_x = 0
     reff_val_y = 0
     integral_error_x = 0
@@ -214,7 +219,8 @@ def servo_control(key2, queue):
             pos_y = cord_info[1]
 
         dt = time.time()-start_time
-        #print(dt)
+        print("dt: Matte: ", dt)
+
         error_x = reff_val_x - pos_x
         error_y = reff_val_y - pos_y
         integral_error_x += error_x * dt
