@@ -34,6 +34,8 @@ servo3_angle_limit_positive = 40
 servo3_angle_limit_negative = -53
 
 
+
+
 def ball_track(key1, queue):
     camera_port = 0
     cap = cv2.VideoCapture(camera_port, cv2.CAP_DSHOW)
@@ -61,7 +63,7 @@ def ball_track(key1, queue):
         # Make circular mask
         masked = cv2.bitwise_and(img, img, mask=mask_plat)
         imgColor, mask = myColorFinder.update(masked, hsvVals)
-        imgContour, countours = cvzone.findContours(masked, mask, minArea=3000, maxArea=5500)
+        imgContour, countours = cvzone.findContours(masked, mask, minArea=2000, maxArea=5500)
 
         if countours:
             data = round((countours[0]['center'][0] - center_point[0]) / 10), \
@@ -141,15 +143,10 @@ def servo_control(key2, queue):
 
     def get_ball_pos():
         cord_info = queue.get()
-        cord_x = cord_info[0]
-        cord_y = cord_info[1]
-        if cord_info == 'nil':
-            cord_x = 0
-            cord_y = 0
-        return cord_x, cord_y
+        return cord_info
 
     def P_Reg(pos_x, pos_y):  # out = kp*e   e = reff - pos
-        kp = 1.7
+        kp = 1.2
         reff_val_x = 0
         reff_val_y = 0
         if (pos_x == 'nil') or (pos_y == 'nil'):
@@ -162,20 +159,14 @@ def servo_control(key2, queue):
         output_y = error_y * kp
         return output_x, output_y
 
-    def PID_controler(pos_x, pos_y):
-        kp = 1.7
-        ki = 1
-        kd = 1
-        start_time = time.time()
-    def ballpos_to_servo_angle(x_pos, y_pos):
-        x_cord, y_cord = P_Reg(x_pos, y_pos)
 
+    def ballpos_to_servo_angle(x_cord, y_cord):
         # convert the distance to center to angle.
         x_ang = map_x_to_y(x_cord, x_min=28, x_max=-28, y_min=-20, y_max=20)
         y_ang = map_x_to_y(y_cord, x_min=28, x_max=-28, y_min=-20, y_max=20)
 
         # x and y angle(deg) in and servoangle out(rad)
-        servo_ang1, servo_ang2, servo_ang3 = rotatematrix(0, 22, y_ang, x_ang)
+        servo_ang1, servo_ang2, servo_ang3 = rotatematrix(0, 22, np.deg2rad(-y_ang), np.deg2rad(-x_ang))
         # print("angle", np.rad2deg(servo_ang1), " ", np.rad2deg(servo_ang2), " ", np.rad2deg(servo_ang3))
 
         return np.rad2deg(servo_ang1), np.rad2deg(servo_ang2), np.rad2deg(servo_ang3)
@@ -196,10 +187,52 @@ def servo_control(key2, queue):
         print('The angles send to the arduino : ', data)
         arduino.write(bytes(data, 'utf-8'))
 
+    kp = 1
+    ki = 1
+    kd = 1
+    reff_val_x = 0
+    reff_val_y = 0
+    integral_error_x = 0
+    integral_error_y = 0
+    last_error_x = 0
+    last_error_y = 0
+    start_time = 0
+
     while key2:
-        pos_x, pos_y = get_ball_pos()  # Ballpos
-        servo_ang1, servo_ang2, servo_ang3 = ballpos_to_servo_angle(pos_x, pos_y)  # Ballpos to servo angle
+        cord_info = get_ball_pos()  # Ballpos
+        if cord_info =='nil':
+            error_x = 0
+            error_y = 0
+            integral_error_x = 0
+            integral_error_y = 0
+            last_error_x = 0
+            last_error_y = 0
+            pos_x = 0
+            pos_y = 0
+        else:
+            pos_x = cord_info[0]
+            pos_y = cord_info[1]
+
+        dt = time.time()-start_time
+        #print(dt)
+        error_x = reff_val_x - pos_x
+        error_y = reff_val_y - pos_y
+        integral_error_x += error_x * dt
+        integral_error_y += error_y * dt
+        print("integral error:  ", integral_error_x, "   ", integral_error_y)
+        deriv_error_x = (error_x - last_error_x) / dt
+        deriv_error_y = (error_y - last_error_y) / dt
+        print("deriv error:  ", deriv_error_x, "   ", deriv_error_y)
+        last_error_x = error_x
+        last_error_y = error_y
+        output_x = error_x * kp + ki * integral_error_x + kd * deriv_error_x
+        output_y = error_y * kp + ki * integral_error_y + kd * deriv_error_y
+        #print(output_x, "   ", output_y)
+
+        servo_ang1, servo_ang2, servo_ang3 = ballpos_to_servo_angle(output_x, output_y)  # Ballpos to servo angle
         filter_write_angle_servo(servo_ang1, servo_ang2, servo_ang3)  # Servo angle to arduino
+
+        start_time = time.time()
     root.mainloop()  # running loop
 
 
