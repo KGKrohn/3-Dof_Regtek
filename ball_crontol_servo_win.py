@@ -86,23 +86,24 @@ def servo_control(key2, queue):
     if key2:
         print('Servo controls are initiated')
 
-    def rotatematrix(Z, rotZdeg, rotYdeg, rotXdeg):
-        L = 21
+    def kinematics(Z, rotZdeg, rotYdeg, rotXdeg):
+        L = 24
         R = 4
 
-        rotZ = (rotZdeg)  # Example value for rotation around Z-axis in degrees
-        rotY = (rotYdeg / 10)  # Example value for rotation around Y-axis in degrees
-        rotX = (rotXdeg / 10)  # Example value for rotation around X-axis in degrees
+        # Convert degrees to radians
+        rotZ = np.deg2rad(rotZdeg)
+        rotY = np.deg2rad(rotYdeg)
+        rotX = np.deg2rad(rotXdeg)
 
         # Define the position matrix
         pos = np.array([
             [L / 2, -(L / 2), 0],
             [L / (2 * np.sqrt(3)), L / (2 * np.sqrt(3)), -(L / np.sqrt(3))],
-            [0, 0, 0]
+            [Z, Z, Z]
         ])
 
-        # Define the rotation matrix
-        rotations_matrix = np.array([
+        # Define the rotation matrix for Y and X axes
+        rotations_matrix_yx = np.array([
             [np.cos(0) * np.cos(rotY), np.cos(0) * np.sin(rotY) * np.sin(rotX) - np.sin(0) * np.cos(rotX),
              np.cos(0) * np.sin(rotY) * np.cos(rotX) + np.sin(0) * np.sin(rotX)],
             [np.sin(0) * np.cos(rotY), np.sin(0) * np.sin(rotY) * np.sin(rotX) + np.cos(0) * np.cos(rotX),
@@ -110,24 +111,26 @@ def servo_control(key2, queue):
             [-np.sin(rotY), np.cos(rotY) * np.sin(rotX), np.cos(rotY) * np.cos(rotX)]
         ])
 
+        # Define the rotation matrix for Z axis
         rotations_matrix_z = np.array([
-            [np.cos(rotZ) * np.cos(0), np.cos(rotZ) * np.sin(0) * np.sin(0) - np.sin(rotZ) * np.cos(0),
-             np.cos(rotZ) * np.sin(0) * np.cos(0) + np.sin(rotZ) * np.sin(0)],
-            [np.sin(rotZ) * np.cos(0), np.sin(rotZ) * np.sin(0) * np.sin(0) + np.cos(rotZ) * np.cos(0),
-             np.sin(rotZ) * np.sin(0) * np.cos(0) - np.cos(rotZ) * np.sin(0)],
-            [-np.sin(0), np.cos(0) * np.sin(0), np.cos(0) * np.cos(0)]
+            [np.cos(rotZ), -np.sin(rotZ), 0],
+            [np.sin(rotZ), np.cos(rotZ), 0],
+            [0, 0, 1]
         ])
 
+        # Apply rotations in sequence
         newpos = np.dot(rotations_matrix_z, pos)
-        # Perform matrix multiplication
-        all_the_rot = np.dot(rotations_matrix, newpos)
+        all_the_rot = np.dot(rotations_matrix_yx, newpos)
 
-        # print(rotZ, rotY, rotX)
-        # print(all_the_rot[0, 2] / R, all_the_rot[1, 2] / R, all_the_rot[2, 2] / R)
+        # Calculate angles using arcsin and normalize them
+        angle1 = np.rad2deg(np.arcsin(np.clip(all_the_rot[2, 0] / R, -1, 1)))
+        angle2 = np.rad2deg(np.arcsin(np.clip(all_the_rot[2, 1] / R, -1, 1)))
+        angle3 = np.rad2deg(np.arcsin(np.clip(all_the_rot[2, 2] / R, -1, 1)))
 
-        angle1 = np.arcsin((all_the_rot[2, 0]) + Z / R)
-        angle2 = np.arcsin((all_the_rot[2, 1]) + Z / R)
-        angle3 = np.arcsin((all_the_rot[2, 2]) + Z / R)
+        # Clip angles to be within -60 and 60 degrees
+        angle1 = np.clip(angle1, -60, 60)
+        angle2 = np.clip(angle2, -60, 60)
+        angle3 = np.clip(angle3, -60, 60)
 
         return angle1, angle2, angle3
 
@@ -163,10 +166,10 @@ def servo_control(key2, queue):
         y_ang = map_x_to_y(y_cord, x_min=28, x_max=-28, y_min=-20, y_max=20)
 
         # x and y angle(deg) in and servoangle out(rad)
-        servo_ang1, servo_ang2, servo_ang3 = rotatematrix(0, 22, np.deg2rad(-y_ang), np.deg2rad(-x_ang))
-        # print("angle", np.rad2deg(servo_ang1), " ", np.rad2deg(servo_ang2), " ", np.rad2deg(servo_ang3))
+        servo_ang1, servo_ang2, servo_ang3 = kinematics(0, 22, y_ang, x_ang)
+        print("angle", servo_ang1, " ", (servo_ang2), " ", (servo_ang3))
 
-        return np.rad2deg(servo_ang1), np.rad2deg(servo_ang2), np.rad2deg(servo_ang3)
+        return servo_ang1, servo_ang2, servo_ang3
 
     def filter_write_angle_servo(servo1_angle_deg, servo2_angle_deg, servo3_angle_deg):
         if (-90 < servo1_angle_deg < 90) and (-90 < servo2_angle_deg < 90) and (-90 < servo3_angle_deg < 90):
@@ -184,9 +187,9 @@ def servo_control(key2, queue):
         print('The angles send to the arduino : ', data)
         arduino.write(bytes(data, 'utf-8'))
 
-    kp = 1.3
-    ki = 0.64
-    kd = 1.356
+    kp = 1
+    ki = 1
+    kd = 1
     reff_val_x = 0
     reff_val_y = 0
     integral_error_x = 0
@@ -216,10 +219,10 @@ def servo_control(key2, queue):
         error_y = reff_val_y - pos_y
         integral_error_x += error_x * dt
         integral_error_y += error_y * dt
-        print("integral error:  ", integral_error_x, "   ", integral_error_y)
+        #print("integral error:  ", integral_error_x, "   ", integral_error_y)
         deriv_error_x = (error_x - last_error_x) / dt
         deriv_error_y = (error_y - last_error_y) / dt
-        print("deriv error:  ", deriv_error_x, "   ", deriv_error_y)
+        #print("deriv error:  ", deriv_error_x, "   ", deriv_error_y)
         last_error_x = error_x
         last_error_y = error_y
         output_x = error_x * kp + ki * integral_error_x + kd * deriv_error_x
