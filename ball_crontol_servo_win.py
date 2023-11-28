@@ -39,7 +39,7 @@ def ball_track(key1, queue):
     prevX = 0
     prevY = 0
 
-    camera_port = 1
+    camera_port = 0
     cap = cv2.VideoCapture(camera_port, cv2.CAP_DSHOW)
     cap.set(3, 960)
     cap.set(4, 540)
@@ -107,7 +107,7 @@ def ball_track(key1, queue):
 
 
 def servo_control(key2, queue):
-    port_id = 'COM3'
+    port_id = 'COM4'
     # initialise serial interface
     arduino = serial.Serial(port=port_id, baudrate=250000, timeout=0.1)
 
