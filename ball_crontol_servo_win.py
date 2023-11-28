@@ -8,11 +8,11 @@ import serial
 import time
 from tkinter import *
 
-hmin_v = 30
-hmax_v = 100
-smin_v = 100
+hmin_v = 25
+hmax_v = 110
+smin_v = 80
 smax_v = 255
-vmin_v = 100
+vmin_v = 80
 vmax_v = 255
 # define servo angles and set a value
 servo1_angle = 0
@@ -36,8 +36,8 @@ servo3_angle_limit_negative = -53
 def ball_track(key1, queue):
     camera_port = 1
     cap = cv2.VideoCapture(camera_port, cv2.CAP_DSHOW)
-    cap.set(3, 1280)
-    cap.set(4, 720)
+    cap.set(3, 960)
+    cap.set(4, 540)
 
     get, img = cap.read()
     h, w, _ = img.shape
@@ -50,15 +50,12 @@ def ball_track(key1, queue):
     hsvVals = {'hmin': hmin_v, 'smin': smin_v, 'vmin': vmin_v, 'hmax': hmax_v, 'smax': smax_v,
                'vmax': vmax_v}
 
-    center_point = [640, 360, 2210]  # center point of the plate, calibrated
-    start_time = 0
+    center_point = [480, 270, 2210]  # center point of the plate, calibrated
+
     while True:
         get, img = cap.read()
         mask_plat = np.zeros(img.shape[:2], dtype='uint8')
-        cv2.circle(mask_plat, (640, 360), 350, (255, 255, 255), -1)
-        cv2.circle(mask_plat, (640, 360), 2, (255, 0, 0), -1)
-        dt = time.time() - start_time
-        #print("dt: kamera ", dt)
+        cv2.circle(mask_plat, (480, 270), 270, (255, 255, 255), -1)
 
         # Make circular mask
         masked = cv2.bitwise_and(img, img, mask=mask_plat)
@@ -66,9 +63,14 @@ def ball_track(key1, queue):
         imgColor, mask = myColorFinder.update(masked, hsvVals)
         imgContour, countours = cvzone.findContours(masked, mask, minArea=2000, maxArea=5500)
 
+        x = -120
+        y = -120
+
         if countours:
-            data = round((countours[0]['center'][0] - center_point[0]) / 10), \
-                round((h - countours[0]['center'][1] - center_point[1]) / 10), \
+            x = round((countours[0]['center'][0]))
+            y = round((countours[0]['center'][1]))
+            data = round((countours[0]['center'][0] - center_point[0]) / 1), \
+                round((h - countours[0]['center'][1] - center_point[1]) / 1), \
                 round(int(countours[0]['area'] - center_point[2]) / 100)
 
             queue.put(data)
@@ -77,7 +79,15 @@ def ball_track(key1, queue):
             queue.put(data)
 
         imgStack = cvzone.stackImages([imgContour], 1, 1)
-        # mgStack = cvzone.stackImages([img, imgColor, mask, imgContour], 2, 0.5)  # use for calibration and correction
+        #imgStack = cvzone.stackImages([img, imgColor, mask, imgContour], 2, 0.5)  # use for calibration and correction
+        cv2.circle(imgStack, (center_point[0], center_point[1]), 270, (255, 20, 20), 6)
+        cv2.circle(imgStack, (center_point[0], center_point[1]), 2, (20, 20, 255), 2)
+
+        cv2.circle(imgStack, (x, y), 5, (20, 20, 255), 2)
+        cv2.circle(imgStack, (x, y), 40, (180, 120, 255), 2)
+
+        #cv2.circle(imgStack, (center_point[0]-int(40*np.cos(time.time()/2)), center_point[1]-int(40*np.sin(time.time()/2))), 5, (20, 20, 255), 2)
+
         cv2.imshow("Image", imgStack)
         start_time = time.time()
         cv2.waitKey(1)
@@ -92,7 +102,7 @@ def servo_control(key2, queue):
         print('Servo controls are initiated')
 
     def kinematics(Z, rotZdeg, rotYdeg, rotXdeg):
-        L = 23.5
+        L = 19
         R = 4
 
         # Convert degrees to radians
@@ -132,10 +142,10 @@ def servo_control(key2, queue):
         angle2 = np.rad2deg(np.arcsin(np.clip(all_the_rot[2, 1] / R, -1, 1)))
         angle3 = np.rad2deg(np.arcsin(np.clip(all_the_rot[2, 2] / R, -1, 1)))
 
-        # Clip angles to be within -60 and 60 degrees
-        angle1 = np.clip(angle1, -60, 60)
-        angle2 = np.clip(angle2, -60, 60)
-        angle3 = np.clip(angle3, -60, 60)
+        # Clip angles to be within -50 and 50 degrees
+        angle1 = np.clip(angle1, -50, 50)
+        angle2 = np.clip(angle2, -50, 50)
+        angle3 = np.clip(angle3, -50, 50)
 
         return angle1, angle2, angle3
 
@@ -148,7 +158,7 @@ def servo_control(key2, queue):
 
     def get_ball_pos():
         cord_info = queue.get()
-        print("Yooooo: ", cord_info[0], " ", cord_info[1])
+        #print("Yooooo: ", cord_info[0], " ", cord_info[1])
         return cord_info
 
     def P_Reg(pos_x, pos_y):  # out = kp*e   e = reff - pos
@@ -166,10 +176,10 @@ def servo_control(key2, queue):
         return output_x, output_y
 
     def ballpos_to_servo_angle(x_cord, y_cord):
-        # convert the distance to center to angle.
-        x_ang = map_x_to_y(x_cord, x_min=28.00, x_max=-28.00, y_min=-20.00, y_max=20.00)
-        y_ang = map_x_to_y(y_cord, x_min=28.00, x_max=-28.00, y_min=-20.00, y_max=20.00)
-
+        """ convert the distance to center to angle.
+        x_ang = map_x_to_y(x_cord/10, x_min=28.00, x_max=-28.00, y_min=-35.00, y_max=35.00)
+        y_ang = map_x_to_y(y_cord/10, x_min=28.00, x_max=-28.00, y_min=-35.00, y_max=35.00)
+        """
         # x and y angle(deg) in and servoangle out(rad)
         servo_ang1, servo_ang2, servo_ang3 = kinematics(0, 22, -y_cord, -x_cord)
         #print("angle", servo_ang1, " ", (servo_ang2), " ", (servo_ang3))
@@ -192,9 +202,9 @@ def servo_control(key2, queue):
         #print('The angles send to the arduino : ', data)
         arduino.write(bytes(data, 'utf-8'))
 
-    kp = 0.3
-    ki = 0.1
-    kd = 0.15
+    kp = 0.405
+    ki = 0.625
+    kd = 0.255
     reff_val_x = 0
     reff_val_y = 0
     integral_error_x = 0
@@ -204,10 +214,13 @@ def servo_control(key2, queue):
     start_time = 0
 
     while key2:
+
         cord_info = get_ball_pos()  # Ballpos
+        #reff_val_x = (40*np.cos(time.time()/2))/10
+        #reff_val_y = (40*np.sin(time.time()/2))/10
         if cord_info =='nil':
-            error_x = 0
-            error_y = 0
+            reff_val_x = 0
+            reff_val_y = 0
             integral_error_x = 0
             integral_error_y = 0
             last_error_x = 0
@@ -215,12 +228,11 @@ def servo_control(key2, queue):
             pos_x = 0
             pos_y = 0
         else:
-            pos_x = cord_info[0]
-            pos_y = cord_info[1]
+            pos_x = (float(cord_info[0])/10)
+            pos_y = (float(cord_info[1])/10)
 
         dt = time.time()-start_time
-        print("dt: Matte: ", dt)
-
+        #print("dt: Matte: ", dt)
         error_x = reff_val_x - pos_x
         error_y = reff_val_y - pos_y
         integral_error_x += error_x * dt
