@@ -6,6 +6,7 @@ from cvzone.ColorModule import ColorFinder
 import cv2
 import serial
 import time
+from scipy.signal import butter, filtfilt
 from tkinter import *
 
 hmin_v = 25
@@ -21,21 +22,18 @@ servo3_angle = 0
 all_angle = 0
 
 # Set a limit to upto which you want to rotate the servos (You can do it according to your needs)
-servo1_angle_zero = 11.2
+
 servo1_angle_limit_positive = 40
 servo1_angle_limit_negative = -50
 
-servo2_angle_zero = -9.3
 servo2_angle_limit_positive = 30
 servo2_angle_limit_negative = -73
 
-servo3_angle_zero = 0
 servo3_angle_limit_positive = 40
 servo3_angle_limit_negative = -53
 
 
 def ball_track(key1, queue):
-
     prevX = 0
     prevY = 0
 
@@ -85,7 +83,7 @@ def ball_track(key1, queue):
             queue.put(data)
 
         imgStack = cvzone.stackImages([imgContour], 1, 1)
-        #imgStack = cvzone.stackImages([img, imgColor, mask, imgContour], 2, 0.5)  # use for calibration and correction
+        # imgStack = cvzone.stackImages([img, imgColor, mask, imgContour], 2, 0.5)  # use for calibration and correction
         cv2.circle(imgStack, (center_point[0], center_point[1]), 270, (255, 20, 20), 6)
         cv2.circle(imgStack, (center_point[0], center_point[1]), 2, (20, 20, 255), 2)
 
@@ -93,9 +91,11 @@ def ball_track(key1, queue):
         cv2.circle(imgStack, (x, y), 40, (180, 120, 255), 2)
 
         vector = [prevX - x, prevY - y]
-        cv2.arrowedLine(imgStack, (x, y), (x-vector[0]*10, y-vector[1]*10), (39,237,250),4)
+        cv2.arrowedLine(imgStack, (x, y), (x - vector[0] * 10, y - vector[1] * 10), (39, 237, 250), 4)
 
-        cv2.circle(imgStack, (center_point[0]+int(80*np.cos(time.time())), center_point[1]-int(80*np.sin(time.time()))), 5, (20, 20, 255), 2)
+        cv2.circle(imgStack,
+                   (center_point[0] + int(80 * np.cos(time.time())), center_point[1] - int(80 * np.sin(time.time()))),
+                   5, (20, 20, 255), 2)
 
         prevX = x
         prevY = y
@@ -103,7 +103,6 @@ def ball_track(key1, queue):
         cv2.imshow("Image", imgStack)
         start_time = time.time()
         cv2.waitKey(1)
-
 
 
 def servo_control(key2, queue):
@@ -159,19 +158,29 @@ def servo_control(key2, queue):
         angle1 = np.clip(angle1, -50, 50)
         angle2 = np.clip(angle2, -50, 50)
         angle3 = np.clip(angle3, -50, 50)
-
+        servo1_angle_zero = 11.2
+        servo2_angle_zero = -9.3
+        servo3_angle_zero = 0
         return angle1, angle2, angle3
 
     root = Tk()
 
     # root.resizable(0,0)
 
+    def butter_lowpass_filter(data, cutoff, fs,
+                              order):  # https://medium.com/analytics-vidhya/how-to-filter-noise-with-a-low-pass-filter-python-885223e5e9b7
+        normal_cutoff = cutoff / (0.5 * fs)
+        # Get the filter coefficients
+        b, a = butter(order, normal_cutoff, btype='low', analog=False)
+        y = filtfilt(b, a, data)
+        return y
+
     def map_x_to_y(value, x_min, x_max, y_min, y_max):
         return y_min + (((value - x_min) / (x_max - x_min)) * (y_max - y_min))
 
     def get_ball_pos():
         cord_info = queue.get()
-        #print("Yooooo: ", cord_info[0], " ", cord_info[1])
+        # print("Yooooo: ", cord_info[0], " ", cord_info[1])
         return cord_info
 
     def P_Reg(pos_x, pos_y):  # out = kp*e   e = reff - pos
@@ -194,8 +203,8 @@ def servo_control(key2, queue):
         y_ang = map_x_to_y(y_cord/10, x_min=28.00, x_max=-28.00, y_min=-35.00, y_max=35.00)
         """
         # x and y angle(deg) in and servoangle out(rad)
-        servo_ang1, servo_ang2, servo_ang3 = kinematics(0, 22, -y_cord, -x_cord)
-        #print("angle", servo_ang1, " ", (servo_ang2), " ", (servo_ang3))
+        servo_ang1, servo_ang2, servo_ang3 = kinematics(0, 22, y_cord, x_cord)
+        # print("angle", servo_ang1, " ", (servo_ang2), " ", (servo_ang3))
 
         return servo_ang1, servo_ang2, servo_ang3
 
@@ -212,7 +221,7 @@ def servo_control(key2, queue):
         write_arduino(str(angles))
 
     def write_arduino(data):
-        #print('The angles send to the arduino : ', data)
+        # print('The angles send to the arduino : ', data)
         arduino.write(bytes(data, 'utf-8'))
 
     kp = 0.395
@@ -225,13 +234,17 @@ def servo_control(key2, queue):
     last_error_x = 0
     last_error_y = 0
     start_time = 0
+    integ_error_data_x = np.zeros(20)
+    integ_error_data_y = np.zeros(20)
+    data_x = np.zeros(20)
+    data_y = np.zeros(20)
 
     while key2:
 
         cord_info = get_ball_pos()  # Ballpos
-        reff_val_x = (80*np.cos(time.time()))/10
-        reff_val_y = (80*np.sin(time.time()))/10
-        if cord_info =='nil':
+        reff_val_x = 0  # (80*np.cos(time.time()))/10
+        reff_val_y = 0  # (80*np.sin(time.time()))/10
+        if cord_info == 'nil':
             reff_val_x = 0
             reff_val_y = 0
             integral_error_x = 0
@@ -241,24 +254,36 @@ def servo_control(key2, queue):
             pos_x = 0
             pos_y = 0
         else:
-            pos_x = (float(cord_info[0])/10)
-            pos_y = (float(cord_info[1])/10)
+            pos_x = (float(cord_info[0]) / 10)
+            pos_y = (float(cord_info[1]) / 10)
+            print("pos_x:", pos_x)
+            print("pos_y:", pos_y)
 
-        dt = time.time()-start_time
-        #print("dt: Matte: ", dt)
+        dt = time.time() - start_time
+        # print("dt: Matte: ", dt)
         error_x = reff_val_x - pos_x
         error_y = reff_val_y - pos_y
         integral_error_x += error_x * dt
         integral_error_y += error_y * dt
-        #print("integral error:  ", integral_error_x, "   ", integral_error_y)
+        # print("integral error:  ", integral_error_x, "   ", integral_error_y)
         deriv_error_x = (error_x - last_error_x) / dt
         deriv_error_y = (error_y - last_error_y) / dt
-        #print("deriv error:  ", deriv_error_x, "   ", deriv_error_y)
+        print("integral_error_x-----------", integral_error_x)
+        np.append(integ_error_data_x, integral_error_x)
+        np.append(integ_error_data_y, integral_error_y)
+
+        filtered_error_data_x = butter_lowpass_filter(data=integ_error_data_x, cutoff=2, fs=1000, order=2)
+        filtered_error_data_y = butter_lowpass_filter(data=integ_error_data_y, cutoff=2, fs=1000, order=2)
+        #print("Filter_data-----------", filtered_error_data_x[len(filtered_error_data_x)-1])
+
+        # print("deriv error:  ", deriv_error_x, "   ", deriv_error_y)
         last_error_x = error_x
         last_error_y = error_y
-        output_x = error_x * kp + ki * integral_error_x + kd * deriv_error_x
-        output_y = error_y * kp + ki * integral_error_y + kd * deriv_error_y
-        #print(output_x, "   ", output_y)
+        output_x = (-kp * error_x) + (-ki * integral_error_x) + (-kd * deriv_error_x)
+        output_y = (-kp * error_y) + (-ki * integral_error_y) + (-kd * deriv_error_y)
+        #output_x = (-kp * error_x) + (-ki * filtered_error_data_x[len(filtered_error_data_x)-1]) + (-kd * deriv_error_x)
+        #output_y = (-kp * error_y) + (-ki * filtered_error_data_y[len(filtered_error_data_y)-1]) + (-kd * deriv_error_y)
+        # print(output_x, "   ", output_y)
 
         servo_ang1, servo_ang2, servo_ang3 = ballpos_to_servo_angle(output_x, output_y)  # Ballpos to servo angle
         filter_write_angle_servo(servo_ang1, servo_ang2, servo_ang3)  # Servo angle to arduino
