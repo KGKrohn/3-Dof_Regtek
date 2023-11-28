@@ -33,7 +33,12 @@ servo3_angle_zero = 0
 servo3_angle_limit_positive = 40
 servo3_angle_limit_negative = -53
 
+
 def ball_track(key1, queue):
+
+    prevX = 0
+    prevY = 0
+
     camera_port = 1
     cap = cv2.VideoCapture(camera_port, cv2.CAP_DSHOW)
     cap.set(3, 960)
@@ -69,6 +74,7 @@ def ball_track(key1, queue):
         if countours:
             x = round((countours[0]['center'][0]))
             y = round((countours[0]['center'][1]))
+
             data = round((countours[0]['center'][0] - center_point[0]) / 1), \
                 round((h - countours[0]['center'][1] - center_point[1]) / 1), \
                 round(int(countours[0]['area'] - center_point[2]) / 100)
@@ -86,11 +92,18 @@ def ball_track(key1, queue):
         cv2.circle(imgStack, (x, y), 5, (20, 20, 255), 2)
         cv2.circle(imgStack, (x, y), 40, (180, 120, 255), 2)
 
-        #cv2.circle(imgStack, (center_point[0]-int(40*np.cos(time.time()/2)), center_point[1]-int(40*np.sin(time.time()/2))), 5, (20, 20, 255), 2)
+        vector = [prevX - x, prevY - y]
+        cv2.arrowedLine(imgStack, (x, y), (x-vector[0]*10, y-vector[1]*10), (39,237,250),4)
+
+        cv2.circle(imgStack, (center_point[0]+int(80*np.cos(time.time())), center_point[1]-int(80*np.sin(time.time()))), 5, (20, 20, 255), 2)
+
+        prevX = x
+        prevY = y
 
         cv2.imshow("Image", imgStack)
         start_time = time.time()
         cv2.waitKey(1)
+
 
 
 def servo_control(key2, queue):
@@ -202,9 +215,9 @@ def servo_control(key2, queue):
         #print('The angles send to the arduino : ', data)
         arduino.write(bytes(data, 'utf-8'))
 
-    kp = 0.405
-    ki = 0.625
-    kd = 0.255
+    kp = 0.395
+    ki = 0.585
+    kd = 0.26
     reff_val_x = 0
     reff_val_y = 0
     integral_error_x = 0
@@ -216,8 +229,8 @@ def servo_control(key2, queue):
     while key2:
 
         cord_info = get_ball_pos()  # Ballpos
-        #reff_val_x = (40*np.cos(time.time()/2))/10
-        #reff_val_y = (40*np.sin(time.time()/2))/10
+        reff_val_x = (80*np.cos(time.time()))/10
+        reff_val_y = (80*np.sin(time.time()))/10
         if cord_info =='nil':
             reff_val_x = 0
             reff_val_y = 0
