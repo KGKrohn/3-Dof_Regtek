@@ -264,7 +264,7 @@ def servo_control(key2, queue):
         error_y = reff_val_y - pos_y
         integral_error_x += error_x * dt
         integral_error_y += error_y * dt
-        # print("integral error:  ", integral_error_x, "   ", integral_error_y)
+        #print("integral error:  ", integral_error_x, "   ", integral_error_y)
         deriv_error_x = (error_x - last_error_x) / dt
         deriv_error_y = (error_y - last_error_y) / dt
         print("D_error_x ", deriv_error_x)
@@ -281,8 +281,8 @@ def servo_control(key2, queue):
         #print("combinded_data y ", deriv_data_y)
 
         if ((len(deriv_data_x) >= 15) and (len(deriv_data_y) >= 15) and -2 < deriv_error_x < 2 and -2 < deriv_error_y < 2):
-            filtered_error_data_x = butter_lowpass_filter(data=deriv_data_x, cutoff=1, fs=100, order=2)
-            filtered_error_data_y = butter_lowpass_filter(data=deriv_data_y, cutoff=1, fs=100, order=2)
+            filtered_error_data_x = butter_lowpass_filter(data=deriv_data_x, cutoff=2.5, fs=100, order=2)
+            filtered_error_data_y = butter_lowpass_filter(data=deriv_data_y, cutoff=2.5, fs=100, order=2)
             print("Filter_data x-----------", filtered_error_data_x[len(filtered_error_data_x) - 1])
             print("Filter_data y-----------", filtered_error_data_y[len(filtered_error_data_y) - 1])
             filter_deriv_error_x = filtered_error_data_x[len(filtered_error_data_x)-1]
@@ -300,7 +300,7 @@ def servo_control(key2, queue):
         #output_y = (-kp * error_y) + (-ki * integral_error_y) + (-kd * deriv_error_y)
         output_x = (-kp * error_x) + (-ki * integral_error_x) + (-kd * filter_deriv_error_x)
         output_y = (-kp * error_y) + (-ki * integral_error_y) + (-kd * filter_deriv_error_y)
-        # print(output_x, "   ", output_y)
+        print(output_x, "   ", output_y)
 
         servo_ang1, servo_ang2, servo_ang3 = ballpos_to_servo_angle(output_x, output_y)  # Ballpos to servo angle
         filter_write_angle_servo(servo_ang1, servo_ang2, servo_ang3)  # Servo angle to arduino
