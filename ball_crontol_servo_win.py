@@ -223,9 +223,9 @@ def servo_control(key2, queue):
         # print('The angles send to the arduino : ', data)
         arduino.write(bytes(data, 'utf-8'))
 
-    kp = 0.39
-    ki = 0.605
-    kd = 0.31
+    kp = 0.39 #0.39
+    ki = 0.64 #0.62
+    kd = 0.345 #0.32
     integral_error_x = 0
     integral_error_y = 0
     last_error_x = 0
@@ -237,8 +237,8 @@ def servo_control(key2, queue):
     while key2:
 
         cord_info = get_ball_pos()  # Ballpos
-        reff_val_x = (80*np.cos(time.time()))/10
-        reff_val_y = (80*np.sin(time.time()))/10
+        reff_val_x = 0#(80*np.cos(time.time()))/10
+        reff_val_y = 0#(80*np.sin(time.time()))/10
 
         if cord_info == 'nil':
             reff_val_x = 0
