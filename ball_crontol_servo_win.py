@@ -116,22 +116,23 @@ def servo_control(key2, queue):
         print('Servo controls are initiated')
 
     def kinematics(Z, rotZdeg, rotYdeg, rotXdeg):
+
+        # Physical properties
         L = 19
         R = 4
 
-        # Convert degrees to radians
         rotZ = np.deg2rad(rotZdeg)
         rotY = np.deg2rad(rotYdeg)
         rotX = np.deg2rad(rotXdeg)
 
-        # Define the position matrix
+        # Position matrix
         pos = np.array([
             [L / 2, -(L / 2), 0],
             [L / (2 * np.sqrt(3)), L / (2 * np.sqrt(3)), -(L / np.sqrt(3))],
             [Z, Z, Z]
         ])
 
-        # Define the rotation matrix for Y and X axes
+        # Rotation matrix for Y and X axes
         rotations_matrix_yx = np.array([
             [np.cos(0) * np.cos(rotY), np.cos(0) * np.sin(rotY) * np.sin(rotX) - np.sin(0) * np.cos(rotX),
              np.cos(0) * np.sin(rotY) * np.cos(rotX) + np.sin(0) * np.sin(rotX)],
@@ -140,7 +141,7 @@ def servo_control(key2, queue):
             [-np.sin(rotY), np.cos(rotY) * np.sin(rotX), np.cos(rotY) * np.cos(rotX)]
         ])
 
-        # Define the rotation matrix for Z axis
+        # Rotation matrix for Z axis
         rotations_matrix_z = np.array([
             [np.cos(rotZ), -np.sin(rotZ), 0],
             [np.sin(rotZ), np.cos(rotZ), 0],
@@ -151,7 +152,7 @@ def servo_control(key2, queue):
         newpos = np.dot(rotations_matrix_z, pos)
         all_the_rot = np.dot(rotations_matrix_yx, newpos)
 
-        # Calculate angles using arcsin and normalize them
+        # Calculate angles
         angle1 = np.rad2deg(np.arcsin(np.clip(all_the_rot[2, 0] / R, -1, 1)))
         angle2 = np.rad2deg(np.arcsin(np.clip(all_the_rot[2, 1] / R, -1, 1)))
         angle3 = np.rad2deg(np.arcsin(np.clip(all_the_rot[2, 2] / R, -1, 1)))
