@@ -16,6 +16,7 @@ smin_v = 80
 smax_v = 255
 vmin_v = 80
 vmax_v = 255
+
 # define servo angles and set a value
 servo1_angle = 0
 servo2_angle = 0
@@ -59,7 +60,7 @@ def ball_track(key1, queue):
     while True:
         get, img = cap.read()
         mask_plat = np.zeros(img.shape[:2], dtype='uint8')
-        cv2.circle(mask_plat, (480, 270), 270, (255, 255, 255), -1)
+        cv2.circle(mask_plat, (480, 270), 230, (255, 255, 255), -1)
 
         # Make circular mask
         masked = cv2.bitwise_and(img, img, mask=mask_plat)
@@ -159,9 +160,6 @@ def servo_control(key2, queue):
         angle1 = np.clip(angle1, -50, 50)
         angle2 = np.clip(angle2, -50, 50)
         angle3 = np.clip(angle3, -50, 50)
-        servo1_angle_zero = 11.2
-        servo2_angle_zero = -9.3
-        servo3_angle_zero = 0
         return angle1, angle2, angle3
 
     root = Tk()
@@ -228,8 +226,6 @@ def servo_control(key2, queue):
     kp = 0.395
     ki = 0.585
     kd = 0.26
-    reff_val_x = 0
-    reff_val_y = 0
     integral_error_x = 0
     integral_error_y = 0
     last_error_x = 0
@@ -241,8 +237,8 @@ def servo_control(key2, queue):
     while key2:
 
         cord_info = get_ball_pos()  # Ballpos
-        reff_val_x = 0  # (80*np.cos(time.time()))/10
-        reff_val_y = 0  # (80*np.sin(time.time()))/10
+        reff_val_x = 0#(80*np.cos(time.time()))/10
+        reff_val_y = 0#(80*np.sin(time.time()))/10
         if cord_info == 'nil':
             reff_val_x = 0
             reff_val_y = 0
@@ -281,8 +277,8 @@ def servo_control(key2, queue):
         #print("combinded_data y ", deriv_data_y)
 
         if ((len(deriv_data_x) >= 15) and (len(deriv_data_y) >= 15) and -2 < deriv_error_x < 2 and -2 < deriv_error_y < 2):
-            filtered_error_data_x = butter_lowpass_filter(data=deriv_data_x, cutoff=2.5, fs=100, order=2)
-            filtered_error_data_y = butter_lowpass_filter(data=deriv_data_y, cutoff=2.5, fs=100, order=2)
+            filtered_error_data_x = butter_lowpass_filter(data=deriv_data_x, cutoff=0.5, fs=100, order=2)
+            filtered_error_data_y = butter_lowpass_filter(data=deriv_data_y, cutoff=0.5, fs=100, order=2)
             print("Filter_data x-----------", filtered_error_data_x[len(filtered_error_data_x) - 1])
             print("Filter_data y-----------", filtered_error_data_y[len(filtered_error_data_y) - 1])
             filter_deriv_error_x = filtered_error_data_x[len(filtered_error_data_x)-1]
@@ -296,10 +292,10 @@ def servo_control(key2, queue):
         last_error_x = error_x
         last_error_y = error_y
 
-        #output_x = (-kp * error_x) + (-ki * integral_error_x) + (-kd * deriv_error_x)
-        #output_y = (-kp * error_y) + (-ki * integral_error_y) + (-kd * deriv_error_y)
-        output_x = (-kp * error_x) + (-ki * integral_error_x) + (-kd * filter_deriv_error_x)
-        output_y = (-kp * error_y) + (-ki * integral_error_y) + (-kd * filter_deriv_error_y)
+        output_x = (-kp * error_x) + (-ki * integral_error_x) + (-kd * deriv_error_x)
+        output_y = (-kp * error_y) + (-ki * integral_error_y) + (-kd * deriv_error_y)
+        #output_x = (-kp * error_x) + (-ki * integral_error_x) + (-kd * filter_deriv_error_x)
+        #output_y = (-kp * error_y) + (-ki * integral_error_y) + (-kd * filter_deriv_error_y)
         print(output_x, "   ", output_y)
 
         servo_ang1, servo_ang2, servo_ang3 = ballpos_to_servo_angle(output_x, output_y)  # Ballpos to servo angle

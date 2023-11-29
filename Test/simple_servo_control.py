@@ -9,7 +9,7 @@ This code can be used for controlling servos by using a simple controller.
 
 #define the port of the arduino. each system may have its own port id
 #NOTE: This can be found from going to arduino ide --> Tools --> Ports
-port_id = 'COM3'
+port_id = 'COM4'
 
 #initialise serial interface
 arduino = serial.Serial(port=port_id, baudrate=250000, timeout=0.1)
@@ -19,17 +19,17 @@ servo2_angle = 0
 servo3_angle = 0
 
 # Set a limit to upto which you want to rotate the servos (You can do it according to your needs)
-servo1_angle_zero = 11.2
-servo1_angle_limit_positive = 40
-servo1_angle_limit_negative = -50
+servo1_angle_zero = 0
+servo1_angle_limit_positive = 90
+servo1_angle_limit_negative = -90
 
-servo2_angle_zero = -9.3
-servo2_angle_limit_positive = 30
-servo2_angle_limit_negative = -73
+servo2_angle_zero = 0
+servo2_angle_limit_positive = 90
+servo2_angle_limit_negative = -90
 
 servo3_angle_zero = 0
-servo3_angle_limit_positive = 40
-servo3_angle_limit_negative = -53
+servo3_angle_limit_positive = 90
+servo3_angle_limit_negative = -90
 
 
 # -------------------------------------------angle assignment functions-------------------------------------------
