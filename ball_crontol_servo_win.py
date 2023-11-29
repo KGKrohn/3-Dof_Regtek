@@ -10,11 +10,11 @@ import array
 from scipy.signal import butter, filtfilt
 from tkinter import *
 
-hmin_v = 25
-hmax_v = 110
-smin_v = 80
+hmin_v = 30
+hmax_v = 90
+smin_v = 30
 smax_v = 255
-vmin_v = 80
+vmin_v = 30
 vmax_v = 255
 
 # define servo angles and set a value
@@ -39,7 +39,7 @@ def ball_track(key1, queue):
     prevX = 0
     prevY = 0
 
-    camera_port = 0
+    camera_port = 1
     cap = cv2.VideoCapture(camera_port, cv2.CAP_DSHOW)
     cap.set(3, 960)
     cap.set(4, 540)
@@ -60,7 +60,7 @@ def ball_track(key1, queue):
     while True:
         get, img = cap.read()
         mask_plat = np.zeros(img.shape[:2], dtype='uint8')
-        cv2.circle(mask_plat, (480, 270), 230, (255, 255, 255), -1)
+        cv2.circle(mask_plat, (480, 270), 240, (255, 255, 255), -1)
 
         # Make circular mask
         masked = cv2.bitwise_and(img, img, mask=mask_plat)
@@ -85,7 +85,7 @@ def ball_track(key1, queue):
             queue.put(data)
 
         imgStack = cvzone.stackImages([imgContour], 1, 1)
-        # imgStack = cvzone.stackImages([img, imgColor, mask, imgContour], 2, 0.5)  # use for calibration and correction
+        #imgStack = cvzone.stackImages([img, imgColor, mask, imgContour], 2, 0.5)  # use for calibration and correction
         cv2.circle(imgStack, (center_point[0], center_point[1]), 270, (255, 20, 20), 6)
         cv2.circle(imgStack, (center_point[0], center_point[1]), 2, (20, 20, 255), 2)
 
@@ -108,7 +108,7 @@ def ball_track(key1, queue):
 
 
 def servo_control(key2, queue):
-    port_id = 'COM4'
+    port_id = 'COM3'
     # initialise serial interface
     arduino = serial.Serial(port=port_id, baudrate=250000, timeout=0.1)
 
@@ -157,9 +157,9 @@ def servo_control(key2, queue):
         angle3 = np.rad2deg(np.arcsin(np.clip(all_the_rot[2, 2] / R, -1, 1)))
 
         # Clip angles to be within -50 and 50 degrees
-        angle1 = np.clip(angle1, -50, 50)
-        angle2 = np.clip(angle2, -50, 50)
-        angle3 = np.clip(angle3, -50, 50)
+        angle1 = np.clip(angle1, -43, 43)
+        angle2 = np.clip(angle2, -43, 43)
+        angle3 = np.clip(angle3, -43, 43)
         return angle1, angle2, angle3
 
     root = Tk()
@@ -223,9 +223,9 @@ def servo_control(key2, queue):
         # print('The angles send to the arduino : ', data)
         arduino.write(bytes(data, 'utf-8'))
 
-    kp = 0.395
-    ki = 0.585
-    kd = 0.26
+    kp = 0.39
+    ki = 0.605
+    kd = 0.295
     integral_error_x = 0
     integral_error_y = 0
     last_error_x = 0
@@ -239,6 +239,7 @@ def servo_control(key2, queue):
         cord_info = get_ball_pos()  # Ballpos
         reff_val_x = 0#(80*np.cos(time.time()))/10
         reff_val_y = 0#(80*np.sin(time.time()))/10
+
         if cord_info == 'nil':
             reff_val_x = 0
             reff_val_y = 0
@@ -292,10 +293,10 @@ def servo_control(key2, queue):
         last_error_x = error_x
         last_error_y = error_y
 
-        output_x = (-kp * error_x) + (-ki * integral_error_x) + (-kd * deriv_error_x)
-        output_y = (-kp * error_y) + (-ki * integral_error_y) + (-kd * deriv_error_y)
-        #output_x = (-kp * error_x) + (-ki * integral_error_x) + (-kd * filter_deriv_error_x)
-        #output_y = (-kp * error_y) + (-ki * integral_error_y) + (-kd * filter_deriv_error_y)
+        #output_x = (-kp * error_x) + (-ki * integral_error_x) + (-kd * deriv_error_x)
+        #output_y = (-kp * error_y) + (-ki * integral_error_y) + (-kd * deriv_error_y)
+        output_x = (-kp * error_x) + (-ki * integral_error_x) + (-kd * filter_deriv_error_x)
+        output_y = (-kp * error_y) + (-ki * integral_error_y) + (-kd * filter_deriv_error_y)
         print(output_x, "   ", output_y)
 
         servo_ang1, servo_ang2, servo_ang3 = ballpos_to_servo_angle(output_x, output_y)  # Ballpos to servo angle
