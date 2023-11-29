@@ -86,7 +86,7 @@ def ball_track(key1, queue):
 
         imgStack = cvzone.stackImages([imgContour], 1, 1)
         #imgStack = cvzone.stackImages([img, imgColor, mask, imgContour], 2, 0.5)  # use for calibration and correction
-        cv2.circle(imgStack, (center_point[0], center_point[1]), 270, (255, 20, 20), 6)
+        #cv2.circle(imgStack, (center_point[0], center_point[1]), 270, (255, 20, 20), 6)
         cv2.circle(imgStack, (center_point[0], center_point[1]), 2, (20, 20, 255), 2)
 
         cv2.circle(imgStack, (x, y), 5, (20, 20, 255), 2)
@@ -225,7 +225,7 @@ def servo_control(key2, queue):
 
     kp = 0.39
     ki = 0.605
-    kd = 0.295
+    kd = 0.31
     integral_error_x = 0
     integral_error_y = 0
     last_error_x = 0
@@ -237,8 +237,8 @@ def servo_control(key2, queue):
     while key2:
 
         cord_info = get_ball_pos()  # Ballpos
-        reff_val_x = 0#(80*np.cos(time.time()))/10
-        reff_val_y = 0#(80*np.sin(time.time()))/10
+        reff_val_x = (80*np.cos(time.time()))/10
+        reff_val_y = (80*np.sin(time.time()))/10
 
         if cord_info == 'nil':
             reff_val_x = 0
@@ -293,10 +293,10 @@ def servo_control(key2, queue):
         last_error_x = error_x
         last_error_y = error_y
 
-        #output_x = (-kp * error_x) + (-ki * integral_error_x) + (-kd * deriv_error_x)
-        #output_y = (-kp * error_y) + (-ki * integral_error_y) + (-kd * deriv_error_y)
-        output_x = (-kp * error_x) + (-ki * integral_error_x) + (-kd * filter_deriv_error_x)
-        output_y = (-kp * error_y) + (-ki * integral_error_y) + (-kd * filter_deriv_error_y)
+        output_x = (-kp * error_x) + (-ki * integral_error_x) + (-kd * deriv_error_x)
+        output_y = (-kp * error_y) + (-ki * integral_error_y) + (-kd * deriv_error_y)
+        #output_x = (-kp * error_x) + (-ki * integral_error_x) + (-kd * filter_deriv_error_x)
+        #output_y = (-kp * error_y) + (-ki * integral_error_y) + (-kd * filter_deriv_error_y)
         print(output_x, "   ", output_y)
 
         servo_ang1, servo_ang2, servo_ang3 = ballpos_to_servo_angle(output_x, output_y)  # Ballpos to servo angle
