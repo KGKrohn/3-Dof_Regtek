@@ -252,14 +252,14 @@ def servo_control(key2, queue):
         arduino.write(bytes(data, 'utf-8'))
 
     #kp =  0.39 # 20s
-    kp = 0.39 #9sek
-    #kp = 0.51 #brageverdi
+    #kp = 0.39 #9sek
+    kp = 0.51 #brageverdi
     #ki =  0.64 # 20s
-    ki = 0.62 #9sek
-    #ki = 0.31 #brageverdi
+    #ki = 0.62 #9sek
+    ki = 0.31 #brageverdi
     #kd =  0.345 # 20s
-    kd = 0.32 # 9sek
-    #kd = 0.25 #brageverdi 9sek
+    #kd = 0.32 # 9sek
+    kd = 0.25 #brageverdi 9sek
 
     integral_error_x = 0
     integral_error_y = 0
