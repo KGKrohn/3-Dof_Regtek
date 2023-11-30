@@ -67,7 +67,7 @@ def ball_track(key1, queue):
     prevX = 0
     prevY = 0
 
-    camera_port = 0
+    camera_port = 1
     cap = cv2.VideoCapture(camera_port, cv2.CAP_DSHOW)
     cap.set(3, 960)
     cap.set(4, 540)
@@ -135,12 +135,55 @@ def ball_track(key1, queue):
 
 
 def servo_control(key2, queue):
-    port_id = 'COM4'
+    port_id = 'COM3'
     # initialise serial interface
     arduino = serial.Serial(port=port_id, baudrate=250000, timeout=0.1)
 
     if key2:
         print('Servo controls are initiated')
+
+    class PID:
+        def __init__(self, Kp, Ki, Kd, setpoint):
+            self.Kp = Kp
+            self.Ki = Ki
+            self.Kd = Kd
+            self.setpoint = setpoint
+            self.error = 0
+            self.lastError = 0
+            self.IntegralError = 0
+            self.DerivativeError = 0
+            self.start_time = 0
+            self.dt = 0
+
+        def compute(self, systemValue):
+            self.dt = time.time() - self.start_time
+            self.error = self.setpoint - systemValue
+            self.IntegralError += self.error * self.dt
+            self.DerivativeError = (self.error - self.lastError) / self.dt
+
+            output = (-self.Kp * self.error) + (-self.Ki * self.IntegralError) + (-self.Kd * self.DerivativeError)
+
+            self.lastError = self.error
+            self.start_time = time.time()
+
+            return output
+
+        def updateSetpoint(self, newsetpoint):
+            self.setpoint = newsetpoint
+
+        def resetErrors(self):
+            self.lastError = 0
+            self.IntegralError = 0
+            self.DerivativeError = 0
+
+        def getError(self):
+            return self.error
+
+        def getIntegralError(self):
+            return self.IntegralError
+
+        def getDerivativeError(self):
+            return self.DerivativeError
 
     def kinematics(Z, rotZdeg, rotYdeg, rotXdeg):
 
@@ -210,20 +253,6 @@ def servo_control(key2, queue):
         # print("Yooooo: ", cord_info[0], " ", cord_info[1])
         return cord_info
 
-    def P_Reg(pos_x, pos_y):  # out = kp*e   e = reff - pos
-        kp = 1.2
-        reff_val_x = 0
-        reff_val_y = 0
-        if (pos_x == 'nil') or (pos_y == 'nil'):
-            pos_x = 0
-            pos_y = 0
-
-        error_x = reff_val_x - pos_x
-        error_y = reff_val_y - pos_y
-        output_x = error_x * kp
-        output_y = error_y * kp
-        return output_x, output_y
-
     def ballpos_to_servo_angle(x_cord, y_cord):
         """ convert the distance to center to angle.
         x_ang = map_x_to_y(x_cord/10, x_min=28.00, x_max=-28.00, y_min=-35.00, y_max=35.00)
@@ -261,11 +290,8 @@ def servo_control(key2, queue):
     #kd = 0.32 # 9sek
     kd = 0.25 #brageverdi 9sek
 
-    integral_error_x = 0
-    integral_error_y = 0
-    last_error_x = 0
-    last_error_y = 0
-    start_time = 0
+    PID_X = PID(kp, ki, kd, 0)
+    PID_Y = PID(kp, ki, kd, 0)
     deriv_data_x = array.array('f', [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
     deriv_data_y = array.array('f', [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
 
@@ -276,12 +302,8 @@ def servo_control(key2, queue):
         reff_val_y = 0#(80*np.sin(time.time()))/10
 
         if cord_info == 'nil':
-            reff_val_x = 0
-            reff_val_y = 0
-            integral_error_x = 0
-            integral_error_y = 0
-            last_error_x = 0
-            last_error_y = 0
+            PID_X.resetErrors()
+            PID_Y.resetErrors()
             pos_x = 0
             pos_y = 0
         else:
@@ -290,18 +312,11 @@ def servo_control(key2, queue):
             print("pos_x:", pos_x)
             print("pos_y:", pos_y)
 
-        dt = time.time() - start_time
-        # print("dt: Matte: ", dt)
-        error_x = reff_val_x - pos_x
-        error_y = reff_val_y - pos_y
-        integral_error_x += error_x * dt
-        integral_error_y += error_y * dt
-        #print("integral error:  ", integral_error_x, "   ", integral_error_y)
-        deriv_error_x = (error_x - last_error_x) / dt
-        deriv_error_y = (error_y - last_error_y) / dt
-        print("D_error_x ", deriv_error_x)
-        print("D_error_y ", deriv_error_y)
-
+        output_x = PID_X.compute(pos_x)
+        output_y = PID_Y.compute(pos_y)
+        #print("D_error_x ", deriv_error_x)
+        #print("D_error_y ", deriv_error_y)
+        """"
         if deriv_error_x != 0:
             deriv_data_x.append(deriv_error_x)
 
@@ -321,21 +336,17 @@ def servo_control(key2, queue):
         else:
             filter_deriv_error_x = deriv_error_x
             filter_deriv_error_y = deriv_error_y
-
+        """
 
         # print("deriv error:  ", deriv_error_x, "   ", deriv_error_y)
-        last_error_x = error_x
-        last_error_y = error_y
 
-        output_x = (-kp * error_x) + (-ki * integral_error_x) + (-kd * deriv_error_x)
-        output_y = (-kp * error_y) + (-ki * integral_error_y) + (-kd * deriv_error_y)
         #output_x = (-kp * error_x) + (-ki * integral_error_x) + (-kd * filter_deriv_error_x)
         #output_y = (-kp * error_y) + (-ki * integral_error_y) + (-kd * filter_deriv_error_y)
         print(output_x, "   ", output_y)
 
         servo_ang1, servo_ang2, servo_ang3 = ballpos_to_servo_angle(output_x, output_y)  # Ballpos to servo angle
         filter_write_angle_servo(servo_ang1, servo_ang2, servo_ang3)  # Servo angle to arduino
-        save_data(pos_x, pos_y, reff_val_x, reff_val_y, error_x, error_y, output_x, output_y)
+        save_data(pos_x, pos_y, reff_val_x, reff_val_y, PID_X.getError(), PID_Y.getError(), output_x, output_y)
         start_time = time.time()
     root.mainloop()  # running loop
 
