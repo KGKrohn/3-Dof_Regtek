@@ -347,9 +347,8 @@ def servo_control(key2, queue):
                 filter_deriv_error_x = filtered_error_data_x[len(filtered_error_data_x) - 1]
                 filter_deriv_error_y = filtered_error_data_y[len(filtered_error_data_y) - 1]
         else:
-            filter_deriv_error_x = output_x
-            filter_deriv_error_y = output_y
-
+            output_x = filter_deriv_error_x
+            output_y = filter_deriv_error_y
 
         print(output_x, "   ", output_y)
 
