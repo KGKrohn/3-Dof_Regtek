@@ -3,8 +3,8 @@ import matplotlib.pyplot as plt
 
 # Define the CSV file and field names
 output_dir = 'Gen_Data'
-output_file = f'{output_dir}/saved_data.csv'
-fieldnames = ["num", "x", "y", "targetX", "targetY", "errorX", "errorY"]
+output_file = f'{output_dir}/saved_data_filter2.csv'
+fieldnames = ["num", "x", "y", "targetX", "targetY", "errorX", "errorY", "tot_error", "PID_x", "PID_y"]
 
 # Read data using pandas
 data = pd.read_csv(output_file)
@@ -16,6 +16,9 @@ targetX_values = data['targetX']
 targetY_values = data['targetY']
 errorX_values = data['errorX']
 errorY_values = data['errorY']
+tot_error_values = data['tot_error']
+PID_x_values = data['PID_x']
+PID_y_values = data['PID_y']
 
 # Plotting
 plt.figure(figsize=(18, 14))
@@ -31,10 +34,20 @@ plt.legend()
 
 
 # Plot errorX vs errorY
+#plt.subplot(3, 1, 2)
+#plt.plot(errorX_values, errorY_values, label='Error (x,y)')
+#plt.xlabel('ErrorX')
+#plt.ylabel('ErrorY')
+#plt.legend()
 plt.subplot(3, 1, 2)
-plt.plot(errorX_values, errorY_values, label='Error (x,y)')
-plt.xlabel('ErrorX')
-plt.ylabel('ErrorY')
+plt.plot(tot_error_values, label='Total error')
+plt.xlabel('Error')
+plt.legend()
+
+plt.subplot(3, 1, 2)
+plt.plot(PID_x_values, PID_y_values, label='PID (x,y)')
+plt.xlabel('PID_X')
+plt.ylabel('PID_Y')
 plt.legend()
 
 plt.subplot(3, 1, 3)

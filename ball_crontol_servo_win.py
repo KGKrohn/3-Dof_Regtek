@@ -9,31 +9,59 @@ import time
 import array
 from scipy.signal import butter, filtfilt
 from tkinter import *
+import os
+import csv
 
-hmin_v = 4#30
-hmax_v = 33#90
-smin_v = 0#30
-smax_v = 32#255
-vmin_v = 153#30
-vmax_v = 255#255
+#hmin_v = 4#30
+#hmax_v = 33#90
+#smin_v = 0#30
+#smax_v = 32#255
+#vmin_v = 153#30
+#vmax_v = 255#255
+hmin_v = 30
+hmax_v = 90
+smin_v = 30
+smax_v = 255
+vmin_v = 30
+vmax_v = 255
+counter = 0
 
-# define servo angles and set a value
-servo1_angle = 0
-servo2_angle = 0
-servo3_angle = 0
-all_angle = 0
+# Initialization of the CSV file:
+fieldnames = ["num", "x", "y", "targetX", "targetY", "errorX", "errorY", "tot_error", "PID_x", "PID_y"]
+output_dir = 'CSV_sourcecode/Gen_Data'
+output_file = f'{output_dir}/saved_data_filter2.csv'
 
-# Set a limit to upto which you want to rotate the servos (You can do it according to your needs)
+# Check if directory exists, create if not
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
 
-servo1_angle_limit_positive = 40
-servo1_angle_limit_negative = -50
+# Initialize CSV file with header if it doesn't exist
+if not os.path.exists(output_file):
+    with open(output_file, 'w') as csv_file:
+        csv_writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+        csv_writer.writeheader()
 
-servo2_angle_limit_positive = 30
-servo2_angle_limit_negative = -73
 
-servo3_angle_limit_positive = 40
-servo3_angle_limit_negative = -53
-
+# Saving Data to the CSV file:
+def save_data(xpos, ypos, targetx, targety, errorx, errory, PID_x, PID_y):
+    tot_error = np.sqrt(errorx**2+errory**2)
+    global counter
+    with open(output_file, 'a') as csv_file:
+        csv_writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+        info = {
+            "num": counter,
+            "x": xpos,
+            "y": ypos,
+            "targetX": targetx,
+            "targetY": targety,
+            "errorX": errorx,
+            "errorY": errory,
+            "tot_error": tot_error,
+            "PID_x": PID_x,
+            "PID_y": PID_y,
+        }
+        csv_writer.writerow(info)
+        counter += 1
 
 def ball_track(key1, queue):
     prevX = 0
@@ -101,7 +129,7 @@ def ball_track(key1, queue):
         prevX = x
         prevY = y
 
-        cv2.imshow("Image", imgStack_4)
+        cv2.imshow("Image", imgStack)
         start_time = time.time()
         cv2.waitKey(1)
 
@@ -223,9 +251,16 @@ def servo_control(key2, queue):
         # print('The angles send to the arduino : ', data)
         arduino.write(bytes(data, 'utf-8'))
 
-    kp = 0.39 #0.39
-    ki = 0.64 #0.62
-    kd = 0.345 #0.32
+    #kp =  0.39 # 20s
+    kp = 0.39 #9sek
+    #kp = 0.51 #brageverdi
+    #ki =  0.64 # 20s
+    ki = 0.62 #9sek
+    #ki = 0.31 #brageverdi
+    #kd =  0.345 # 20s
+    kd = 0.32 # 9sek
+    #kd = 0.25 #brageverdi 9sek
+
     integral_error_x = 0
     integral_error_y = 0
     last_error_x = 0
@@ -300,7 +335,7 @@ def servo_control(key2, queue):
 
         servo_ang1, servo_ang2, servo_ang3 = ballpos_to_servo_angle(output_x, output_y)  # Ballpos to servo angle
         filter_write_angle_servo(servo_ang1, servo_ang2, servo_ang3)  # Servo angle to arduino
-
+        save_data(pos_x, pos_y, reff_val_x, reff_val_y, error_x, error_y, output_x, output_y)
         start_time = time.time()
     root.mainloop()  # running loop
 
