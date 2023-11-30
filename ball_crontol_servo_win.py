@@ -261,7 +261,6 @@ def servo_control(key2, queue):
 
     def get_ball_pos():
         cord_info = queue.get()
-        # print("Yooooo: ", cord_info[0], " ", cord_info[1])
         return cord_info
 
     def ballpos_to_servo_angle(x_cord, y_cord):
@@ -271,7 +270,6 @@ def servo_control(key2, queue):
         """
         # x and y angle(deg) in and servoangle out(rad)
         servo_ang1, servo_ang2, servo_ang3 = kinematics(0, 22, y_cord, x_cord)
-        # print("angle", servo_ang1, " ", (servo_ang2), " ", (servo_ang3))
 
         return servo_ang1, servo_ang2, servo_ang3
 
@@ -297,8 +295,8 @@ def servo_control(key2, queue):
 
     PID_X = PID(kp, ki, kd, 0)
     PID_Y = PID(kp, ki, kd, 0)
-    deriv_data_x = array.array('f', [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-    deriv_data_y = array.array('f', [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+    PID_filter_data_x = array.array('f', [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+    PID_filter_data_y = array.array('f', [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
 
     while key2:
 
@@ -320,44 +318,38 @@ def servo_control(key2, queue):
             print("pos_x:", pos_x)
             print("pos_y:", pos_y)
 
-        #print("D_error_x ", deriv_error_x)
-        #print("D_error_y ", deriv_error_y)
 
-        if deriv_error_x != 0:
-            deriv_data_x.append(deriv_error_x)
+        output_x = PID_X.compute(pos_x)
+        output_y = PID_Y.compute(pos_y)
+
+        if output_x != 0:
+            PID_filter_data_x.append(output_x)
+
+        if output_y != 0:
+            PID_filter_data_y.append(output_y)
 
         if pos_x != 0:
-            cutoff_x = np.abs((reff_val_x - pos_x) * 0.05)
+            cutoff_x = np.abs(output_x * 0.20)
         else:
             cutoff_x = 0.5
-        if deriv_error_y != 0:
-            deriv_data_y.append(deriv_error_y)
 
         if pos_x != 0:
-            cutoff_y = np.abs((reff_val_y - pos_x) * 0.05)
+            cutoff_y = np.abs(output_y * 0.20)
         else:
             cutoff_y = 0.5
 
-        #print("combinded_data x ", deriv_data_x)
-        #print("combinded_data y ", deriv_data_y)
-
-        if ((len(deriv_data_x) >= 15) and (len(deriv_data_y) >= 15)):
-            filtered_error_data_x = butter_lowpass_filter(data=deriv_data_x, cutoff=cutoff_x, fs=100, order=2)
-            filtered_error_data_y = butter_lowpass_filter(data=deriv_data_y, cutoff=cutoff_y, fs=100, order=2)
-            print("Filter_data x-----------", filtered_error_data_x[len(filtered_error_data_x) - 1])
-            print("Filter_data y-----------", filtered_error_data_y[len(filtered_error_data_y) - 1])
-            filter_deriv_error_x = filtered_error_data_x[len(filtered_error_data_x)-1]
-            filter_deriv_error_y = filtered_error_data_y[len(filtered_error_data_y)-1]
-        else:
-            filter_deriv_error_x = deriv_error_x
-            filter_deriv_error_y = deriv_error_y
-
         if filter_on:
-            output_x = PID_X.compute_filtered(pos_x, PID_X.getError(), PID_X.getIntegralError(), filter_deriv_error_x)
-            output_y = PID_Y.compute_filtered(pos_y, PID_Y.getError(), PID_Y.getIntegralError(), filter_deriv_error_y)
+            if ((len(PID_filter_data_x) >= 15) and (len(PID_filter_data_y) >= 15)):
+                filtered_error_data_x = butter_lowpass_filter(data=PID_filter_data_x, cutoff=cutoff_x, fs=100, order=2)
+                filtered_error_data_y = butter_lowpass_filter(data=PID_filter_data_y, cutoff=cutoff_y, fs=100, order=2)
+                print("Filter_data x-----------", filtered_error_data_x[len(filtered_error_data_x) - 1])
+                print("Filter_data y-----------", filtered_error_data_y[len(filtered_error_data_y) - 1])
+                filter_deriv_error_x = filtered_error_data_x[len(filtered_error_data_x) - 1]
+                filter_deriv_error_y = filtered_error_data_y[len(filtered_error_data_y) - 1]
         else:
-            output_x = PID_X.compute(pos_x)
-            output_y = PID_Y.compute(pos_y)
+            filter_deriv_error_x = output_x
+            filter_deriv_error_y = output_y
+
 
         print(output_x, "   ", output_y)
 
