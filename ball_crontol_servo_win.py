@@ -12,8 +12,8 @@ from tkinter import *
 import os
 import csv
 
-hmin_v = 4
-hmax_v = 33
+hmin_v = 0
+hmax_v = 40
 smin_v = 0
 smax_v = 32
 vmin_v = 153
@@ -25,7 +25,7 @@ vmax_v = 255
 #vmin_v = 30
 #vmax_v = 255
 counter = 0
-filter_on = False
+filter_on = True
 
 # Initialization of the CSV file:
 fieldnames = ["num", "x", "y", "targetX", "targetY", "errorX", "errorY", "tot_error", "PID_x", "PID_y"]
@@ -301,56 +301,47 @@ def servo_control(key2, queue):
     while key2:
 
         cord_info = get_ball_pos()  # Ballpos
-        deriv_error_x = PID_X.getDerivativeError()
-        deriv_error_y = PID_Y.getDerivativeError()
-        print("deriv", deriv_error_x, " , ", deriv_error_y)
-        reff_val_x = 0#(80*np.cos(time.time()))/10
-        reff_val_y = 0#(80*np.sin(time.time()))/10
+        reff_val_x = (80*np.cos(time.time()))/10
+        reff_val_y = (80*np.sin(time.time()))/10
+        PID_X.updateSetpoint(reff_val_x)
+        PID_Y.updateSetpoint(reff_val_y)
 
         if cord_info == 'nil':
             PID_X.resetErrors()
             PID_Y.resetErrors()
             pos_x = 0
             pos_y = 0
+            PID_X.updateSetpoint(0)
+            PID_Y.updateSetpoint(0)
         else:
             pos_x = (float(cord_info[0]) / 10)
             pos_y = (float(cord_info[1]) / 10)
-            print("pos_x:", pos_x)
-            print("pos_y:", pos_y)
-
 
         output_x = PID_X.compute(pos_x)
         output_y = PID_Y.compute(pos_y)
 
         if output_x != 0:
+            cutoff_x = np.abs(output_x * 0.25)
             PID_filter_data_x.append(output_x)
+        else:
+            cutoff_x = 2
 
         if output_y != 0:
+            cutoff_y = np.abs(output_y * 0.25)
             PID_filter_data_y.append(output_y)
-
-        if pos_x != 0:
-            cutoff_x = np.abs(output_x * 0.20)
         else:
-            cutoff_x = 0.5
-
-        if pos_x != 0:
-            cutoff_y = np.abs(output_y * 0.20)
-        else:
-            cutoff_y = 0.5
+            cutoff_y = 2
 
         if filter_on:
             if ((len(PID_filter_data_x) >= 15) and (len(PID_filter_data_y) >= 15)):
-                filtered_error_data_x = butter_lowpass_filter(data=PID_filter_data_x, cutoff=cutoff_x, fs=100, order=2)
-                filtered_error_data_y = butter_lowpass_filter(data=PID_filter_data_y, cutoff=cutoff_y, fs=100, order=2)
-                print("Filter_data x-----------", filtered_error_data_x[len(filtered_error_data_x) - 1])
-                print("Filter_data y-----------", filtered_error_data_y[len(filtered_error_data_y) - 1])
+                print("cutoff_x: ", cutoff_x)
+                print("cutoff_y: ", cutoff_y)
+                filtered_error_data_x = butter_lowpass_filter(data=PID_filter_data_x, cutoff=cutoff_x, fs=10, order=2)
+                filtered_error_data_y = butter_lowpass_filter(data=PID_filter_data_y, cutoff=cutoff_y, fs=10, order=2)
                 filter_deriv_error_x = filtered_error_data_x[len(filtered_error_data_x) - 1]
                 filter_deriv_error_y = filtered_error_data_y[len(filtered_error_data_y) - 1]
-        else:
-            output_x = filter_deriv_error_x
-            output_y = filter_deriv_error_y
-
-        print(output_x, "   ", output_y)
+                output_x = filter_deriv_error_x
+                output_y = filter_deriv_error_y
 
         servo_ang1, servo_ang2, servo_ang3 = ballpos_to_servo_angle(output_x, output_y)  # Ballpos to servo angle
         write_servo(servo_ang1, servo_ang2, servo_ang3)  # Servo angle to arduino
