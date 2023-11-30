@@ -17,7 +17,7 @@ cap.set(4, 720)
 get, img = cap.read()
 h,w,_ = img.shape
 
-myColorFinder = ColorFinder(False) # if you want to find the color and calibrate the program we use this *(Debugging)
+myColorFinder = ColorFinder(True) # if you want to find the color and calibrate the program we use this *(Debugging)
 hsvVals = {'hmin': 0, 'smin': 65, 'vmin': 219, 'hmax': 179, 'smax': 255, 'vmax': 255}  # this is hsv values for orange color
 
 
@@ -25,8 +25,8 @@ center_point = [626,337,2210] # this center point is found by placing the ball a
 
 while True:
     get, img = cap.read()
-    imgColor, mask = myColorFinder.update(img,hsvVals)
-    imgContour, countours = cvzone.findContours(img,mask)
+    imgColor, mask = myColorFinder.update(img, hsvVals)
+    imgContour, countours = cvzone.findContours(img, mask)
 
     if countours:
         data = round((countours[0]['center'][0] - center_point[0])/10), \
