@@ -35,6 +35,41 @@ servo3_angle_limit_positive = 40
 servo3_angle_limit_negative = -53
 
 
+class PID:
+    def __init__(self, Kp, Ki, Kd, setpoint):
+        self.Kp = Kp
+        self.Ki = Ki
+        self.Kd = Kd
+        self.setpoint = setpoint
+        self.lastError = 0
+        self.IntegralError = 0
+        self.DerivativeError = 0
+        self.start_time = 0
+        self.dt = 0
+
+    def compute(self, systemValue):
+        self.dt = time.time() - self.start_time
+        error = self.setpoint - systemValue
+        self.IntegralError += error * self.dt
+        self.DerivativeError = (error - self.lastError) / self.dt
+
+        output = (-self.Kp * error) + (-self.Ki * self.IntegralError) + (-self.Kd * self.DerivativeError)
+
+        self.lastError = error
+        self.start_time = time.time()
+
+        return output
+
+    def updateSetpoint(self, newsetpoint):
+        self.setpoint = newsetpoint
+
+    def resetErrors(self):
+        self.lastError = 0
+        self.IntegralError = 0
+        self.DerivativeError = 0
+
+
+
 def ball_track(key1, queue):
     prevX = 0
     prevY = 0
@@ -86,15 +121,17 @@ def ball_track(key1, queue):
 
         imgStack = cvzone.stackImages([imgContour], 1, 1)
         #imgStack = cvzone.stackImages([img, imgColor, mask, imgContour], 2, 0.5)  # use for calibration and correction
-        #cv2.circle(imgStack, (center_point[0], center_point[1]), 270, (255, 20, 20), 6)
         cv2.circle(imgStack, (center_point[0], center_point[1]), 2, (20, 20, 255), 2)
 
+        #Add nice little circle to ball
         cv2.circle(imgStack, (x, y), 5, (20, 20, 255), 2)
         cv2.circle(imgStack, (x, y), 40, (180, 120, 255), 2)
 
+        #Create velocity vector for ball on track image
         vector = [prevX - x, prevY - y]
         cv2.arrowedLine(imgStack, (x, y), (x - vector[0] * 10, y - vector[1] * 10), (39, 237, 250), 4)
 
+        #Moving setpoint circle REMOVE LATER
         cv2.circle(imgStack,
                    (center_point[0] + int(80 * np.cos(time.time())), center_point[1] - int(80 * np.sin(time.time()))),
                    5, (20, 20, 255), 2)
@@ -182,20 +219,6 @@ def servo_control(key2, queue):
         cord_info = queue.get()
         # print("Yooooo: ", cord_info[0], " ", cord_info[1])
         return cord_info
-
-    def P_Reg(pos_x, pos_y):  # out = kp*e   e = reff - pos
-        kp = 1.2
-        reff_val_x = 0
-        reff_val_y = 0
-        if (pos_x == 'nil') or (pos_y == 'nil'):
-            pos_x = 0
-            pos_y = 0
-
-        error_x = reff_val_x - pos_x
-        error_y = reff_val_y - pos_y
-        output_x = error_x * kp
-        output_y = error_y * kp
-        return output_x, output_y
 
     def ballpos_to_servo_angle(x_cord, y_cord):
         """ convert the distance to center to angle.
