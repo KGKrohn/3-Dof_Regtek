@@ -34,7 +34,7 @@ plot = False
 # Initialization of the CSV file:
 fieldnames = ["num", "x", "y", "targetX", "targetY", "errorX", "errorY", "tot_error", "PID_x", "PID_y"]
 output_dir = 'CSV_sourcecode/Gen_Data'
-output_file = f'{output_dir}/saved_data_filter2.csv'
+output_file = f'{output_dir}/saved_data.csv'
 
 # Check if directory exists, create if not
 if not os.path.exists(output_dir):
@@ -48,25 +48,26 @@ if not os.path.exists(output_file):
 
 
 # Saving Data to the CSV file:
-def save_data(xpos, ypos, targetx, targety, errorx, errory, PID_x, PID_y):
+def save_data(xpos, ypos, targetx, targety, errorx, errory, PID_x, PID_y, plot):
     tot_error = np.sqrt(errorx ** 2 + errory ** 2)
     global counter
-    with open(output_file, 'a') as csv_file:
-        csv_writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-        info = {
-            "num": counter,
-            "x": xpos,
-            "y": ypos,
-            "targetX": targetx,
-            "targetY": targety,
-            "errorX": errorx,
-            "errorY": errory,
-            "tot_error": tot_error,
-            "PID_x": PID_x,
-            "PID_y": PID_y,
-        }
-        csv_writer.writerow(info)
-        counter += 1
+    if plot:
+        with open(output_file, 'a') as csv_file:
+            csv_writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+            info = {
+                "num": counter,
+                "x": xpos,
+                "y": ypos,
+                "targetX": targetx,
+                "targetY": targety,
+                "errorX": errorx,
+                "errorY": errory,
+                "tot_error": tot_error,
+                "PID_x": PID_x,
+                "PID_y": PID_y,
+            }
+            csv_writer.writerow(info)
+            counter += 1
 
 
 def ball_track(key1, queue, reff_queue):
@@ -121,10 +122,12 @@ def ball_track(key1, queue, reff_queue):
 
             elif (PlotButton.TopLeft()[0] <= x <= PlotButton.BottomRight()[0]) and (
                     PlotButton.TopLeft()[1] <= y <= PlotButton.BottomRight()[1]):
+                print("plot:  true")
                 plot = True
 
             elif (StopPlotButton.TopLeft()[0] <= x <= StopPlotButton.BottomRight()[0]) and (
                     StopPlotButton.TopLeft()[1] <= y <= StopPlotButton.BottomRight()[1]):
+                print("plot:  false")
                 plot = False
 
     global center, circle, eight, plot
@@ -404,7 +407,7 @@ def servo_control(key2, queue, reff_queue):
     while key2:
         center, circle, eight, plot = reff_queue.get()
         cord_info = get_ball_pos()  # Ballpos
-        print(center,circle,eight)
+
         if center:
             PID_X.updateSetpoint(0)
             PID_Y.updateSetpoint(0)
@@ -458,7 +461,7 @@ def servo_control(key2, queue, reff_queue):
 
         servo_ang1, servo_ang2, servo_ang3 = ballpos_to_servo_angle(output_x, output_y)  # Ballpos to servo angle
         write_servo(servo_ang1, servo_ang2, servo_ang3)  # Servo angle to arduino
-        save_data(pos_x, pos_y, PID_X.getSetpoint(), PID_Y.getSetpoint(), PID_X.getError(), PID_Y.getError(), output_x, output_y)
+        save_data(pos_x, pos_y, PID_X.getSetpoint(), PID_Y.getSetpoint(), PID_X.getError(), PID_Y.getError(), output_x, output_y, plot)
     root.mainloop()  # running loop
 
 
