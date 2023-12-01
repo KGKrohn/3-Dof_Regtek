@@ -13,10 +13,10 @@ import os
 import csv
 
 hmin_v = 0
-hmax_v = 40
+hmax_v = 50
 smin_v = 0
-smax_v = 32
-vmin_v = 153
+smax_v = 50
+vmin_v = 170
 vmax_v = 255
 # hmin_v = 30
 # hmax_v = 90
@@ -25,7 +25,7 @@ vmax_v = 255
 # vmin_v = 30
 # vmax_v = 255
 counter = 0
-filter_on = True
+filter_on = False
 center = True
 circle = False
 eight = False
@@ -69,7 +69,7 @@ def save_data(xpos, ypos, targetx, targety, errorx, errory, PID_x, PID_y):
         counter += 1
 
 
-def ball_track(key1, queue):
+def ball_track(key1, queue, reff_queue):
 
     class button:
         def __init__(self, sizeX, sizeY, cordX, cordY):
@@ -95,43 +95,39 @@ def ball_track(key1, queue):
     CenterButton = button(160,60,30,30)
     CircleButton = button(160,60,30,120)
     EightButton = button(160, 60, 30, 210)
-    PlotButton = button(120,60,30,400)
-    StopPlotButton = button(120, 60, 160, 400)
+    PlotButton = button(120,60,30,440)
+    StopPlotButton = button(120, 60, 160, 440)
     def mouse_callback(event, x, y, flags, param):
         global center, circle, eight, plot
 
         if event == cv2.EVENT_LBUTTONDOWN:
             if (CenterButton.TopLeft()[0] <= x <= CenterButton.BottomRight()[0]) and (
                     CenterButton.TopLeft()[1] <= y <= CenterButton.BottomRight()[1]):
-                print("You hit it")
                 center = True
                 circle = False
                 eight = False
 
             elif (CircleButton.TopLeft()[0] <= x <= CircleButton.BottomRight()[0]) and (
                     CircleButton.TopLeft()[1] <= y <= CircleButton.BottomRight()[1]):
-                print("You hit it 2")
                 center = False
                 circle = True
                 eight = False
 
             elif (EightButton.TopLeft()[0] <= x <= EightButton.BottomRight()[0]) and (
                     EightButton.TopLeft()[1] <= y <= EightButton.BottomRight()[1]):
-                print("You hit it 8")
                 center = False
                 circle = False
                 eight = True
 
             elif (PlotButton.TopLeft()[0] <= x <= PlotButton.BottomRight()[0]) and (
                     PlotButton.TopLeft()[1] <= y <= PlotButton.BottomRight()[1]):
-                print("You hit it 3")
                 plot = True
 
             elif (StopPlotButton.TopLeft()[0] <= x <= StopPlotButton.BottomRight()[0]) and (
                     StopPlotButton.TopLeft()[1] <= y <= StopPlotButton.BottomRight()[1]):
-                print("You hit it 4")
                 plot = False
 
+    global center, circle, eight, plot
     prevX = 0
     prevY = 0
 
@@ -167,6 +163,9 @@ def ball_track(key1, queue):
 
         x = -120
         y = -120
+
+        boolData = [center, circle, eight, plot]
+        reff_queue.put(boolData)
 
         if countours:
             x = round((countours[0]['center'][0]))
@@ -236,7 +235,7 @@ def ball_track(key1, queue):
         cv2.waitKey(1)
 
 
-def servo_control(key2, queue):
+def servo_control(key2, queue, reff_queue):
     port_id = 'COM4'
     # initialise serial interface
     arduino = serial.Serial(port=port_id, baudrate=250000, timeout=0.1)
@@ -282,6 +281,9 @@ def servo_control(key2, queue):
 
         def updateSetpoint(self, newsetpoint):
             self.setpoint = newsetpoint
+
+        def getSetpoint(self):
+            return self.setpoint
 
         def resetErrors(self):
             self.lastError = 0
@@ -400,12 +402,20 @@ def servo_control(key2, queue):
     PID_filter_data_y = array.array('f', [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
 
     while key2:
-
+        center, circle, eight, plot = reff_queue.get()
         cord_info = get_ball_pos()  # Ballpos
-        reff_val_x = (80 * np.cos(time.time())) / 10
-        reff_val_y = (80 * np.sin(time.time())) / 10
-        PID_X.updateSetpoint(reff_val_x)
-        PID_Y.updateSetpoint(reff_val_y)
+        print(center,circle,eight)
+        if center:
+            PID_X.updateSetpoint(0)
+            PID_Y.updateSetpoint(0)
+
+        if circle:
+            PID_X.updateSetpoint(int(80 * np.cos(time.time()) / 10))
+            PID_Y.updateSetpoint(int(80 * np.sin(time.time()) / 10))
+
+        if eight:
+            PID_X.updateSetpoint(int(80 * np.sin(time.time())/10))
+            PID_Y.updateSetpoint(int(80 * np.sin(2*time.time())/10))
 
         if cord_info == 'nil':
             PID_X.resetErrors()
@@ -448,16 +458,17 @@ def servo_control(key2, queue):
 
         servo_ang1, servo_ang2, servo_ang3 = ballpos_to_servo_angle(output_x, output_y)  # Ballpos to servo angle
         write_servo(servo_ang1, servo_ang2, servo_ang3)  # Servo angle to arduino
-        save_data(pos_x, pos_y, reff_val_x, reff_val_y, PID_X.getError(), PID_Y.getError(), output_x, output_y)
+        save_data(pos_x, pos_y, PID_X.getSetpoint(), PID_Y.getSetpoint(), PID_X.getError(), PID_Y.getError(), output_x, output_y)
     root.mainloop()  # running loop
 
 
 if __name__ == '__main__':
     queue = Queue()  # The queue is done inorder for the communication between the two processes.
+    reff_queue = Queue()
     key1 = 1  # just two dummy arguments passed for the processes
     key2 = 2
-    p1 = mp.Process(target=ball_track, args=(key1, queue))  # initiate ball tracking process
-    p2 = mp.Process(target=servo_control, args=(key2, queue))  # initiate servo controls
+    p1 = mp.Process(target=ball_track, args=(key1, queue, reff_queue))  # initiate ball tracking process
+    p2 = mp.Process(target=servo_control, args=(key2, queue, reff_queue))  # initiate servo controls
     p1.start()
     p2.start()
     p1.join()
