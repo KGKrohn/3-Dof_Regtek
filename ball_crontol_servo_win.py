@@ -25,7 +25,7 @@ vmax_v = 255
 #vmin_v = 30
 #vmax_v = 255
 counter = 0
-filter_on = True
+filter_on = False
 
 # Initialization of the CSV file:
 fieldnames = ["num", "x", "y", "targetX", "targetY", "errorX", "errorY", "tot_error", "PID_x", "PID_y"]
@@ -301,8 +301,8 @@ def servo_control(key2, queue):
     while key2:
 
         cord_info = get_ball_pos()  # Ballpos
-        reff_val_x = (80*np.cos(time.time()))/10
-        reff_val_y = (80*np.sin(time.time()))/10
+        reff_val_x = 0#(80*np.cos(time.time()))/10
+        reff_val_y = 0#(80*np.sin(time.time()))/10
         PID_X.updateSetpoint(reff_val_x)
         PID_Y.updateSetpoint(reff_val_y)
 
@@ -313,6 +313,8 @@ def servo_control(key2, queue):
             pos_y = 0
             PID_X.updateSetpoint(0)
             PID_Y.updateSetpoint(0)
+            PID_filter_data_x = array.array('f', [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+            PID_filter_data_y = array.array('f', [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
         else:
             pos_x = (float(cord_info[0]) / 10)
             pos_y = (float(cord_info[1]) / 10)
@@ -321,13 +323,13 @@ def servo_control(key2, queue):
         output_y = PID_Y.compute(pos_y)
 
         if output_x != 0:
-            cutoff_x = np.abs(output_x * 0.25)
+            cutoff_x = np.abs(output_x * 2.5)
             PID_filter_data_x.append(output_x)
         else:
             cutoff_x = 2
 
         if output_y != 0:
-            cutoff_y = np.abs(output_y * 0.25)
+            cutoff_y = np.abs(output_y * 2.5)
             PID_filter_data_y.append(output_y)
         else:
             cutoff_y = 2
@@ -336,8 +338,8 @@ def servo_control(key2, queue):
             if ((len(PID_filter_data_x) >= 15) and (len(PID_filter_data_y) >= 15)):
                 print("cutoff_x: ", cutoff_x)
                 print("cutoff_y: ", cutoff_y)
-                filtered_error_data_x = butter_lowpass_filter(data=PID_filter_data_x, cutoff=cutoff_x, fs=10, order=2)
-                filtered_error_data_y = butter_lowpass_filter(data=PID_filter_data_y, cutoff=cutoff_y, fs=10, order=2)
+                filtered_error_data_x = butter_lowpass_filter(data=PID_filter_data_x, cutoff=cutoff_x, fs=100, order=2)
+                filtered_error_data_y = butter_lowpass_filter(data=PID_filter_data_y, cutoff=cutoff_y, fs=100, order=2)
                 filter_deriv_error_x = filtered_error_data_x[len(filtered_error_data_x) - 1]
                 filter_deriv_error_y = filtered_error_data_y[len(filtered_error_data_y) - 1]
                 output_x = filter_deriv_error_x
