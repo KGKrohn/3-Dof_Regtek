@@ -18,14 +18,18 @@ smin_v = 0
 smax_v = 32
 vmin_v = 153
 vmax_v = 255
-#hmin_v = 30
-#hmax_v = 90
-#smin_v = 30
-#smax_v = 255
-#vmin_v = 30
-#vmax_v = 255
+# hmin_v = 30
+# hmax_v = 90
+# smin_v = 30
+# smax_v = 255
+# vmin_v = 30
+# vmax_v = 255
 counter = 0
 filter_on = True
+center = True
+circle = False
+eight = False
+plot = False
 
 # Initialization of the CSV file:
 fieldnames = ["num", "x", "y", "targetX", "targetY", "errorX", "errorY", "tot_error", "PID_x", "PID_y"]
@@ -45,7 +49,7 @@ if not os.path.exists(output_file):
 
 # Saving Data to the CSV file:
 def save_data(xpos, ypos, targetx, targety, errorx, errory, PID_x, PID_y):
-    tot_error = np.sqrt(errorx**2+errory**2)
+    tot_error = np.sqrt(errorx ** 2 + errory ** 2)
     global counter
     with open(output_file, 'a') as csv_file:
         csv_writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
@@ -64,7 +68,70 @@ def save_data(xpos, ypos, targetx, targety, errorx, errory, PID_x, PID_y):
         csv_writer.writerow(info)
         counter += 1
 
+
 def ball_track(key1, queue):
+
+    class button:
+        def __init__(self, sizeX, sizeY, cordX, cordY):
+            self.size = sizeX, sizeY
+            self.cord = cordX, cordY
+            self.BtmRight = cordX+sizeX, cordY+sizeY
+            self.TxtPos = cordX+20, int(cordY+sizeY/1.75)
+        def getCord(self):
+            return self.cord
+
+        def getSize(self):
+            return self.size
+
+        def TopLeft(self):
+            return self.cord
+
+        def BottomRight(self):
+            return self.BtmRight
+
+        def TextPos(self):
+            return self.TxtPos
+
+    CenterButton = button(160,60,30,30)
+    CircleButton = button(160,60,30,120)
+    EightButton = button(160, 60, 30, 210)
+    PlotButton = button(120,60,30,400)
+    StopPlotButton = button(120, 60, 160, 400)
+    def mouse_callback(event, x, y, flags, param):
+        global center, circle, eight, plot
+
+        if event == cv2.EVENT_LBUTTONDOWN:
+            if (CenterButton.TopLeft()[0] <= x <= CenterButton.BottomRight()[0]) and (
+                    CenterButton.TopLeft()[1] <= y <= CenterButton.BottomRight()[1]):
+                print("You hit it")
+                center = True
+                circle = False
+                eight = False
+
+            elif (CircleButton.TopLeft()[0] <= x <= CircleButton.BottomRight()[0]) and (
+                    CircleButton.TopLeft()[1] <= y <= CircleButton.BottomRight()[1]):
+                print("You hit it 2")
+                center = False
+                circle = True
+                eight = False
+
+            elif (EightButton.TopLeft()[0] <= x <= EightButton.BottomRight()[0]) and (
+                    EightButton.TopLeft()[1] <= y <= EightButton.BottomRight()[1]):
+                print("You hit it 8")
+                center = False
+                circle = False
+                eight = True
+
+            elif (PlotButton.TopLeft()[0] <= x <= PlotButton.BottomRight()[0]) and (
+                    PlotButton.TopLeft()[1] <= y <= PlotButton.BottomRight()[1]):
+                print("You hit it 3")
+                plot = True
+
+            elif (StopPlotButton.TopLeft()[0] <= x <= StopPlotButton.BottomRight()[0]) and (
+                    StopPlotButton.TopLeft()[1] <= y <= StopPlotButton.BottomRight()[1]):
+                print("You hit it 4")
+                plot = False
+
     prevX = 0
     prevY = 0
 
@@ -79,7 +146,9 @@ def ball_track(key1, queue):
     if key1:
         print('Ball tracking is initiated')
 
-    myColorFinder = ColorFinder(False)  # if you want to find the color and calibrate the program we use this *(Debugging)
+
+    myColorFinder = ColorFinder(
+        False)  # if you want to find the color and calibrate the program we use this *(Debugging)
     hsvVals = {'hmin': hmin_v, 'smin': smin_v, 'vmin': vmin_v, 'hmax': hmax_v, 'smax': smax_v,
                'vmax': vmax_v}
 
@@ -113,25 +182,57 @@ def ball_track(key1, queue):
             queue.put(data)
 
         imgStack = cvzone.stackImages([imgContour], 1, 1)
-        imgStack_4 = cvzone.stackImages([img, imgColor, mask, imgContour], 2, 0.5)  # use for calibration and correction
-        #cv2.circle(imgStack, (center_point[0], center_point[1]), 270, (255, 20, 20), 6)
-        cv2.circle(imgStack, (center_point[0], center_point[1]), 2, (20, 20, 255), 2)
 
+        #Ball Track stuff
         cv2.circle(imgStack, (x, y), 5, (20, 20, 255), 2)
         cv2.circle(imgStack, (x, y), 40, (180, 120, 255), 2)
 
+        #Ball velocity vector
         vector = [prevX - x, prevY - y]
         cv2.arrowedLine(imgStack, (x, y), (x - vector[0] * 10, y - vector[1] * 10), (39, 237, 250), 4)
 
-        cv2.circle(imgStack,
+        if center:
+            cv2.circle(imgStack, (center_point[0], center_point[1]), 2, (20, 20, 255), 2)
+
+        if circle:
+            cv2.circle(imgStack,
                    (center_point[0] + int(80 * np.cos(time.time())), center_point[1] - int(80 * np.sin(time.time()))),
                    5, (20, 20, 255), 2)
+
+        if eight:
+            cv2.circle(imgStack,
+                   (center_point[0] + int(80 * np.sin(time.time())), center_point[1] - int(80 * np.sin(2*time.time()))),
+                   5, (20, 20, 255), 2)
+
+        # Center Button
+        cv2.rectangle(imgStack, CenterButton.TopLeft(), CenterButton.BottomRight(), (40, 160, 40), -1)
+        cv2.putText(imgStack, "Center Position", CenterButton.TextPos(),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
+
+        # Circle Button
+        cv2.rectangle(imgStack, CircleButton.TopLeft(), CircleButton.BottomRight(), (40, 160, 40), -1)
+        cv2.putText(imgStack, "Circle Ball", CircleButton.TextPos(),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
+
+        # 8-figure Button
+        cv2.rectangle(imgStack, EightButton.TopLeft(), EightButton.BottomRight(), (40, 160, 40), -1)
+        cv2.putText(imgStack, "Figure Eight", EightButton.TextPos(),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
+
+        # Plot Buttons
+        cv2.rectangle(imgStack, PlotButton.TopLeft(), PlotButton.BottomRight(), (40, 160, 40), -1)
+        cv2.putText(imgStack, "Start Plot", PlotButton.TextPos(),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
+
+        cv2.rectangle(imgStack, StopPlotButton.TopLeft(), StopPlotButton.BottomRight(), (40, 40, 160), -1)
+        cv2.putText(imgStack, "Stop Plot", StopPlotButton.TextPos(),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
 
         prevX = x
         prevY = y
 
         cv2.imshow("Image", imgStack)
-        start_time = time.time()
+        cv2.setMouseCallback("Image", mouse_callback)
         cv2.waitKey(1)
 
 
@@ -168,6 +269,7 @@ def servo_control(key2, queue):
             self.start_time = time.time()
 
             return output
+
         def compute_filtered(self, systemValue, error, IntegralError, DerivativeError):
             self.dt = time.time() - self.start_time
 
@@ -194,7 +296,6 @@ def servo_control(key2, queue):
 
         def getDerivativeError(self):
             return self.DerivativeError
-
 
     def kinematics(Z, rotZdeg, rotYdeg, rotXdeg):
 
@@ -283,15 +384,15 @@ def servo_control(key2, queue):
         # print('The angles send to the arduino : ', data)
         arduino.write(bytes(data, 'utf-8'))
 
-    #kp =  0.39 # 20s
-    kp = 0.39 #9sek
-    #kp = 0.51 #brageverdi
-    #ki =  0.64 # 20s
-    ki = 0.62 #9sek
-    #ki = 0.31 #brageverdi
-    #kd =  0.345 # 20s
-    kd = 0.32 # 9sek
-    #kd = 0.25 #brageverdi 9sek
+    # kp =  0.39 # 20s
+    kp = 0.39  # 9sek
+    # kp = 0.51 #brageverdi
+    # ki =  0.64 # 20s
+    ki = 0.62  # 9sek
+    # ki = 0.31 #brageverdi
+    # kd =  0.345 # 20s
+    kd = 0.32  # 9sek
+    # kd = 0.25 #brageverdi 9sek
 
     PID_X = PID(kp, ki, kd, 0)
     PID_Y = PID(kp, ki, kd, 0)
@@ -301,8 +402,8 @@ def servo_control(key2, queue):
     while key2:
 
         cord_info = get_ball_pos()  # Ballpos
-        reff_val_x = (80*np.cos(time.time()))/10
-        reff_val_y = (80*np.sin(time.time()))/10
+        reff_val_x = (80 * np.cos(time.time())) / 10
+        reff_val_y = (80 * np.sin(time.time())) / 10
         PID_X.updateSetpoint(reff_val_x)
         PID_Y.updateSetpoint(reff_val_y)
 
