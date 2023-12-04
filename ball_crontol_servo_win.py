@@ -12,11 +12,11 @@ from tkinter import *
 import os
 import csv
 
-hmin_v = 4
-hmax_v = 33
+hmin_v = 0
+hmax_v = 50
 smin_v = 0
-smax_v = 32
-vmin_v = 153
+smax_v = 50
+vmin_v = 170
 vmax_v = 255
 #hmin_v = 30
 #hmax_v = 90
@@ -25,7 +25,7 @@ vmax_v = 255
 #vmin_v = 30
 #vmax_v = 255
 counter = 0
-filter_on = False
+filter_on = True
 
 # Initialization of the CSV file:
 fieldnames = ["num", "x", "y", "targetX", "targetY", "errorX", "errorY", "tot_error", "PID_x", "PID_y"]
@@ -297,6 +297,8 @@ def servo_control(key2, queue):
     PID_Y = PID(kp, ki, kd, 0)
     PID_filter_data_x = array.array('f', [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
     PID_filter_data_y = array.array('f', [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+    filter_deriv_error_x = 0
+    filter_deriv_error_y = 0
 
     while key2:
 
@@ -323,34 +325,34 @@ def servo_control(key2, queue):
         output_y = PID_Y.compute(pos_y)
 
         if output_x != 0:
-            PID_filter_data_x.append(output_x)
+            PID_filter_data_x.append(filter_deriv_error_x)
 
         if output_y != 0:
-            PID_filter_data_y.append(output_y)
+            PID_filter_data_y.append(filter_deriv_error_y)
 
         if pos_x != 0:
-            cutoff_x = 1
+            cutoff_x = 0.1
         else:
-            cutoff_x = 0.5
+            cutoff_x = 0.1
 
         if pos_x != 0:
-            cutoff_y = 1
+            cutoff_y = 0.1
         else:
-            cutoff_y = 0.5
+            cutoff_y = 0.1
 
         if filter_on:
             if ((len(PID_filter_data_x) >= 15) and (len(PID_filter_data_y) >= 15)):
-                filtered_error_data_x = butter_lowpass_filter(data=PID_filter_data_x, cutoff=cutoff_x, fs=30, order=1)
-                filtered_error_data_y = butter_lowpass_filter(data=PID_filter_data_y, cutoff=cutoff_y, fs=30, order=1)
+                filtered_error_data_x = butter_lowpass_filter(data=PID_filter_data_x, cutoff=cutoff_x, fs=10, order=1)
+                filtered_error_data_y = butter_lowpass_filter(data=PID_filter_data_y, cutoff=cutoff_y, fs=10, order=1)
                 print("Filter_data x-----------", filtered_error_data_x[len(filtered_error_data_x) - 1])
                 print("Filter_data y-----------", filtered_error_data_y[len(filtered_error_data_y) - 1])
                 filter_deriv_error_x = filtered_error_data_x[len(filtered_error_data_x) - 1]
                 filter_deriv_error_y = filtered_error_data_y[len(filtered_error_data_y) - 1]
-            PID_X.compute_filtered(pos_x, PID_X.getError(), PID_X.getIntegralError(), filter_deriv_error_x)
-            PID_Y.compute_filtered(pos_y, PID_Y.getError(), PID_Y.getIntegralError(), filter_deriv_error_y)
+                PID_x_filter = PID_X.compute_filtered(pos_x, PID_X.getError(), PID_X.getIntegralError(), filter_deriv_error_x)
+                PID_y_filter = PID_Y.compute_filtered(pos_y, PID_Y.getError(), PID_Y.getIntegralError(), filter_deriv_error_y)
         else:
-            filter_deriv_error_x = output_x
-            filter_deriv_error_y = output_y
+            output_x = PID_x_filter
+            output_y = PID_y_filter
 
 
         print(output_x, "   ", output_y)
