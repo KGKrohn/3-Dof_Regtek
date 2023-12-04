@@ -250,7 +250,7 @@ def servo_control(key2, queue):
 
     def butter_lowpass_filter(data, cutoff, fs,
                               order):  # https://medium.com/analytics-vidhya/how-to-filter-noise-with-a-low-pass-filter-python-885223e5e9b7
-        normal_cutoff = cutoff / (0.5 * fs)
+        normal_cutoff = cutoff / (0.05 * fs)
         # Get the filter coefficients
         b, a = butter(order, normal_cutoff, btype='low', analog=False)
         y = filtfilt(b, a, data)
@@ -329,23 +329,25 @@ def servo_control(key2, queue):
             PID_filter_data_y.append(output_y)
 
         if pos_x != 0:
-            cutoff_x = np.abs(output_x * 0.20)
+            cutoff_x = 1
         else:
             cutoff_x = 0.5
 
         if pos_x != 0:
-            cutoff_y = np.abs(output_y * 0.20)
+            cutoff_y = 1
         else:
             cutoff_y = 0.5
 
         if filter_on:
             if ((len(PID_filter_data_x) >= 15) and (len(PID_filter_data_y) >= 15)):
-                filtered_error_data_x = butter_lowpass_filter(data=PID_filter_data_x, cutoff=cutoff_x, fs=100, order=2)
-                filtered_error_data_y = butter_lowpass_filter(data=PID_filter_data_y, cutoff=cutoff_y, fs=100, order=2)
+                filtered_error_data_x = butter_lowpass_filter(data=PID_filter_data_x, cutoff=cutoff_x, fs=30, order=1)
+                filtered_error_data_y = butter_lowpass_filter(data=PID_filter_data_y, cutoff=cutoff_y, fs=30, order=1)
                 print("Filter_data x-----------", filtered_error_data_x[len(filtered_error_data_x) - 1])
                 print("Filter_data y-----------", filtered_error_data_y[len(filtered_error_data_y) - 1])
                 filter_deriv_error_x = filtered_error_data_x[len(filtered_error_data_x) - 1]
                 filter_deriv_error_y = filtered_error_data_y[len(filtered_error_data_y) - 1]
+            PID_X.compute_filtered(pos_x, PID_X.getError(), PID_X.getIntegralError(), filter_deriv_error_x)
+            PID_Y.compute_filtered(pos_y, PID_Y.getError(), PID_Y.getIntegralError(), filter_deriv_error_y)
         else:
             filter_deriv_error_x = output_x
             filter_deriv_error_y = output_y
