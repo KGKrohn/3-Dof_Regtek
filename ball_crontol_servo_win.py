@@ -71,13 +71,13 @@ def save_data(xpos, ypos, targetx, targety, errorx, errory, PID_x, PID_y, plot):
 
 
 def ball_track(key1, queue, reff_queue):
-
     class button:
         def __init__(self, sizeX, sizeY, cordX, cordY):
             self.size = sizeX, sizeY
             self.cord = cordX, cordY
-            self.BtmRight = cordX+sizeX, cordY+sizeY
-            self.TxtPos = cordX+20, int(cordY+sizeY/1.75)
+            self.BtmRight = cordX + sizeX, cordY + sizeY
+            self.TxtPos = cordX + 20, int(cordY + sizeY / 1.75)
+
         def getCord(self):
             return self.cord
 
@@ -93,11 +93,12 @@ def ball_track(key1, queue, reff_queue):
         def TextPos(self):
             return self.TxtPos
 
-    CenterButton = button(160,60,30,30)
-    CircleButton = button(160,60,30,120)
+    CenterButton = button(160, 60, 30, 30)
+    CircleButton = button(160, 60, 30, 120)
     EightButton = button(160, 60, 30, 210)
-    PlotButton = button(120,60,30,440)
+    PlotButton = button(120, 60, 30, 440)
     StopPlotButton = button(120, 60, 160, 440)
+
     def mouse_callback(event, x, y, flags, param):
         global center, circle, eight, plot
 
@@ -145,7 +146,6 @@ def ball_track(key1, queue, reff_queue):
     if key1:
         print('Ball tracking is initiated')
 
-
     myColorFinder = ColorFinder(
         False)  # if you want to find the color and calibrate the program we use this *(Debugging)
     hsvVals = {'hmin': hmin_v, 'smin': smin_v, 'vmin': vmin_v, 'hmax': hmax_v, 'smax': smax_v,
@@ -185,11 +185,11 @@ def ball_track(key1, queue, reff_queue):
 
         imgStack = cvzone.stackImages([imgContour], 1, 1)
 
-        #Ball Track stuff
+        # Ball Track stuff
         cv2.circle(imgStack, (x, y), 5, (20, 20, 255), 2)
         cv2.circle(imgStack, (x, y), 40, (180, 120, 255), 2)
 
-        #Ball velocity vector
+        # Ball velocity vector
         vector = [prevX - x, prevY - y]
         cv2.arrowedLine(imgStack, (x, y), (x - vector[0] * 10, y - vector[1] * 10), (39, 237, 250), 4)
 
@@ -198,13 +198,15 @@ def ball_track(key1, queue, reff_queue):
 
         if circle:
             cv2.circle(imgStack,
-                   (center_point[0] + int(80 * np.cos(time.time())), center_point[1] - int(80 * np.sin(time.time()))),
-                   5, (20, 20, 255), 2)
+                       (center_point[0] + int(80 * np.cos(time.time())),
+                        center_point[1] - int(80 * np.sin(time.time()))),
+                       5, (20, 20, 255), 2)
 
         if eight:
             cv2.circle(imgStack,
-                   (center_point[0] + int(80 * np.sin(time.time())), center_point[1] - int(80 * np.sin(2*time.time()))),
-                   5, (20, 20, 255), 2)
+                       (center_point[0] + int(80 * np.sin(time.time())),
+                        center_point[1] - int(80 * np.sin(2 * time.time()))),
+                       5, (20, 20, 255), 2)
 
         # Center Button
         cv2.rectangle(imgStack, CenterButton.TopLeft(), CenterButton.BottomRight(), (40, 160, 40), -1)
@@ -236,7 +238,6 @@ def ball_track(key1, queue, reff_queue):
         cv2.imshow("Image", imgStack)
         cv2.setMouseCallback("Image", mouse_callback)
         cv2.waitKey(1)
-
 
 def servo_control(key2, queue, reff_queue):
     port_id = 'COM4'
@@ -417,8 +418,8 @@ def servo_control(key2, queue, reff_queue):
             PID_Y.updateSetpoint(int(80 * np.sin(time.time()) / 10))
 
         if eight:
-            PID_X.updateSetpoint(int(80 * np.sin(time.time())/10))
-            PID_Y.updateSetpoint(int(80 * np.sin(2*time.time())/10))
+            PID_X.updateSetpoint(int(80 * np.sin(time.time()) / 10))
+            PID_Y.updateSetpoint(int(80 * np.sin(2 * time.time()) / 10))
 
         if cord_info == 'nil':
             PID_X.resetErrors()
@@ -437,31 +438,40 @@ def servo_control(key2, queue, reff_queue):
         output_y = PID_Y.compute(pos_y)
 
         if output_x != 0:
-            cutoff_x = np.abs(output_x * 2.5)
-            PID_filter_data_x.append(output_x)
-        else:
-            cutoff_x = 2
+            PID_filter_data_x.append(PID_X.getDerivativeError())
 
         if output_y != 0:
-            cutoff_y = np.abs(output_y * 2.5)
-            PID_filter_data_y.append(output_y)
+            PID_filter_data_y.append(PID_X.getDerivativeError())
+
+        if pos_x != 0:
+            cutoff_x = 0.165
         else:
-            cutoff_y = 2
+            cutoff_x = 0.01
+
+        if pos_x != 0:
+            cutoff_y = 0.165
+        else:
+            cutoff_y = 0.01
 
         if filter_on:
             if ((len(PID_filter_data_x) >= 15) and (len(PID_filter_data_y) >= 15)):
-                print("cutoff_x: ", cutoff_x)
-                print("cutoff_y: ", cutoff_y)
-                filtered_error_data_x = butter_lowpass_filter(data=PID_filter_data_x, cutoff=cutoff_x, fs=100, order=2)
-                filtered_error_data_y = butter_lowpass_filter(data=PID_filter_data_y, cutoff=cutoff_y, fs=100, order=2)
+                filtered_error_data_x = butter_lowpass_filter(data=PID_filter_data_x, cutoff=cutoff_x, fs=10, order=1)
+                filtered_error_data_y = butter_lowpass_filter(data=PID_filter_data_y, cutoff=cutoff_y, fs=10, order=1)
+                print("Filter_data x-----------", filtered_error_data_x[len(filtered_error_data_x) - 1])
+                print("Filter_data y-----------", filtered_error_data_y[len(filtered_error_data_y) - 1])
                 filter_deriv_error_x = filtered_error_data_x[len(filtered_error_data_x) - 1]
                 filter_deriv_error_y = filtered_error_data_y[len(filtered_error_data_y) - 1]
-                output_x = filter_deriv_error_x
-                output_y = filter_deriv_error_y
+                PID_x_filter = PID_X.compute_filtered(pos_x, PID_X.getError(), PID_X.getIntegralError(),
+                                                      filter_deriv_error_x)
+                PID_y_filter = PID_Y.compute_filtered(pos_y, PID_Y.getError(), PID_Y.getIntegralError(),
+                                                      filter_deriv_error_y)
+                output_x = PID_x_filter
+                output_y = PID_y_filter
 
         servo_ang1, servo_ang2, servo_ang3 = ballpos_to_servo_angle(output_x, output_y)  # Ballpos to servo angle
         write_servo(servo_ang1, servo_ang2, servo_ang3)  # Servo angle to arduino
-        save_data(pos_x, pos_y, PID_X.getSetpoint(), PID_Y.getSetpoint(), PID_X.getError(), PID_Y.getError(), output_x, output_y, plot)
+        save_data(pos_x, pos_y, PID_X.getSetpoint(), PID_Y.getSetpoint(), PID_X.getError(), PID_Y.getError(), output_x,
+                  output_y, plot)
     root.mainloop()  # running loop
 
 
