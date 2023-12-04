@@ -25,7 +25,7 @@ vmax_v = 255
 #vmin_v = 30
 #vmax_v = 255
 counter = 0
-filter_on = True
+filter_on = False
 
 # Initialization of the CSV file:
 fieldnames = ["num", "x", "y", "targetX", "targetY", "errorX", "errorY", "tot_error", "PID_x", "PID_y"]
@@ -331,14 +331,14 @@ def servo_control(key2, queue):
             PID_filter_data_y.append(filter_deriv_error_y)
 
         if pos_x != 0:
-            cutoff_x = 0.1
+            cutoff_x = 0.001
         else:
-            cutoff_x = 0.1
+            cutoff_x = 0.01
 
         if pos_x != 0:
-            cutoff_y = 0.1
+            cutoff_y = 0.001
         else:
-            cutoff_y = 0.1
+            cutoff_y = 0.01
 
         if filter_on:
             if ((len(PID_filter_data_x) >= 15) and (len(PID_filter_data_y) >= 15)):
@@ -350,9 +350,9 @@ def servo_control(key2, queue):
                 filter_deriv_error_y = filtered_error_data_y[len(filtered_error_data_y) - 1]
                 PID_x_filter = PID_X.compute_filtered(pos_x, PID_X.getError(), PID_X.getIntegralError(), filter_deriv_error_x)
                 PID_y_filter = PID_Y.compute_filtered(pos_y, PID_Y.getError(), PID_Y.getIntegralError(), filter_deriv_error_y)
-        else:
-            output_x = PID_x_filter
-            output_y = PID_y_filter
+                output_x = PID_x_filter
+                output_y = PID_y_filter
+
 
 
         print(output_x, "   ", output_y)
