@@ -12,18 +12,12 @@ from tkinter import *
 import os
 import csv
 
-hmin_v = 0
+hmin_v = 0  # white ball
 hmax_v = 50
 smin_v = 0
 smax_v = 50
 vmin_v = 170
 vmax_v = 255
-# hmin_v = 30
-# hmax_v = 90
-# smin_v = 30
-# smax_v = 255
-# vmin_v = 30
-# vmax_v = 255
 counter = 0
 filter_on = False
 center = True
@@ -239,6 +233,7 @@ def ball_track(key1, queue, reff_queue):
         cv2.setMouseCallback("Image", mouse_callback)
         cv2.waitKey(1)
 
+
 def servo_control(key2, queue, reff_queue):
     port_id = 'COM4'
     # initialise serial interface
@@ -264,6 +259,7 @@ def servo_control(key2, queue, reff_queue):
             self.dt = time.time() - self.start_time
             self.error = self.setpoint - systemValue
             self.IntegralError += self.error * self.dt
+            self.IntegralError = np.clip(self.IntegralError, a_min=-5, a_max=5)  # integral windup
             self.DerivativeError = (self.error - self.lastError) / self.dt
 
             output = (-self.Kp * self.error) + (-self.Ki * self.IntegralError) + (-self.Kd * self.DerivativeError)
@@ -273,14 +269,8 @@ def servo_control(key2, queue, reff_queue):
 
             return output
 
-        def compute_filtered(self, systemValue, error, IntegralError, DerivativeError):
-            self.dt = time.time() - self.start_time
-
+        def define_filtered_output(self, error, IntegralError, DerivativeError):
             output = (-self.Kp * error) + (-self.Ki * IntegralError) + (-self.Kd * DerivativeError)
-
-            self.lastError = self.error
-            self.start_time = time.time()
-
             return output
 
         def updateSetpoint(self, newsetpoint):
@@ -357,24 +347,17 @@ def servo_control(key2, queue, reff_queue):
 
     def butter_lowpass_filter(data, cutoff, fs,
                               order):  # https://medium.com/analytics-vidhya/how-to-filter-noise-with-a-low-pass-filter-python-885223e5e9b7
-        normal_cutoff = cutoff / (0.5 * fs)
+        normal_cutoff = cutoff / (0.05 * fs)
         # Get the filter coefficients
         b, a = butter(order, normal_cutoff, btype='low', analog=False)
         y = filtfilt(b, a, data)
         return y
-
-    def map_x_to_y(value, x_min, x_max, y_min, y_max):
-        return y_min + (((value - x_min) / (x_max - x_min)) * (y_max - y_min))
 
     def get_ball_pos():
         cord_info = queue.get()
         return cord_info
 
     def ballpos_to_servo_angle(x_cord, y_cord):
-        """ convert the distance to center to angle.
-        x_ang = map_x_to_y(x_cord/10, x_min=28.00, x_max=-28.00, y_min=-35.00, y_max=35.00)
-        y_ang = map_x_to_y(y_cord/10, x_min=28.00, x_max=-28.00, y_min=-35.00, y_max=35.00)
-        """
         # x and y angle(deg) in and servoangle out(rad)
         servo_ang1, servo_ang2, servo_ang3 = kinematics(0, 22, y_cord, x_cord)
 
@@ -414,12 +397,12 @@ def servo_control(key2, queue, reff_queue):
             PID_Y.updateSetpoint(0)
 
         if circle:
-            PID_X.updateSetpoint(int(80 * np.cos(time.time()) / 10))
-            PID_Y.updateSetpoint(int(80 * np.sin(time.time()) / 10))
+            PID_X.updateSetpoint(float(80 * np.cos(time.time()) / 10))
+            PID_Y.updateSetpoint(float(80 * np.sin(time.time()) / 10))
 
         if eight:
-            PID_X.updateSetpoint(int(80 * np.sin(time.time()) / 10))
-            PID_Y.updateSetpoint(int(80 * np.sin(2 * time.time()) / 10))
+            PID_X.updateSetpoint(float(80 * np.sin(time.time()) / 10))
+            PID_Y.updateSetpoint(float(80 * np.sin(2 * time.time()) / 10))
 
         if cord_info == 'nil':
             PID_X.resetErrors()
@@ -441,32 +424,29 @@ def servo_control(key2, queue, reff_queue):
             PID_filter_data_x.append(PID_X.getDerivativeError())
 
         if output_y != 0:
-            PID_filter_data_y.append(PID_X.getDerivativeError())
+            PID_filter_data_y.append(PID_Y.getDerivativeError())
 
         if pos_x != 0:
-            cutoff_x = 0.165
+            cutoff_x = 0.13  # Filter parameter
         else:
             cutoff_x = 0.01
 
         if pos_x != 0:
-            cutoff_y = 0.165
+            cutoff_y = 0.13  # Filter parameter
         else:
             cutoff_y = 0.01
 
-        if filter_on:
-            if ((len(PID_filter_data_x) >= 15) and (len(PID_filter_data_y) >= 15)):
-                filtered_error_data_x = butter_lowpass_filter(data=PID_filter_data_x, cutoff=cutoff_x, fs=10, order=1)
-                filtered_error_data_y = butter_lowpass_filter(data=PID_filter_data_y, cutoff=cutoff_y, fs=10, order=1)
-                print("Filter_data x-----------", filtered_error_data_x[len(filtered_error_data_x) - 1])
-                print("Filter_data y-----------", filtered_error_data_y[len(filtered_error_data_y) - 1])
-                filter_deriv_error_x = filtered_error_data_x[len(filtered_error_data_x) - 1]
-                filter_deriv_error_y = filtered_error_data_y[len(filtered_error_data_y) - 1]
-                PID_x_filter = PID_X.compute_filtered(pos_x, PID_X.getError(), PID_X.getIntegralError(),
-                                                      filter_deriv_error_x)
-                PID_y_filter = PID_Y.compute_filtered(pos_y, PID_Y.getError(), PID_Y.getIntegralError(),
-                                                      filter_deriv_error_y)
-                output_x = PID_x_filter
-                output_y = PID_y_filter
+        if filter_on and ((len(PID_filter_data_x) >= 15) and (len(PID_filter_data_y) >= 15)):
+            filtered_error_data_x = butter_lowpass_filter(data=PID_filter_data_x, cutoff=cutoff_x, fs=100, order=1)
+            filtered_error_data_y = butter_lowpass_filter(data=PID_filter_data_y, cutoff=cutoff_y, fs=100, order=1)
+            filter_deriv_error_x = filtered_error_data_x[len(filtered_error_data_x) - 1]
+            filter_deriv_error_y = filtered_error_data_y[len(filtered_error_data_y) - 1]
+            PID_x_filter = PID_X.define_filtered_output(PID_X.getError(), PID_X.getIntegralError(),
+                                                        filter_deriv_error_x)
+            PID_y_filter = PID_Y.define_filtered_output(PID_Y.getError(), PID_Y.getIntegralError(),
+                                                        filter_deriv_error_y)
+            output_x = PID_x_filter
+            output_y = PID_y_filter
 
         servo_ang1, servo_ang2, servo_ang3 = ballpos_to_servo_angle(output_x, output_y)  # Ballpos to servo angle
         write_servo(servo_ang1, servo_ang2, servo_ang3)  # Servo angle to arduino
