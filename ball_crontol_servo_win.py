@@ -441,14 +441,12 @@ def servo_control(key2, queue, reff_queue):
             filtered_error_data_y = butter_lowpass_filter(data=PID_filter_data_y, cutoff=cutoff_y, fs=100, order=1)
             filter_deriv_error_x = filtered_error_data_x[len(filtered_error_data_x) - 1]
             filter_deriv_error_y = filtered_error_data_y[len(filtered_error_data_y) - 1]
-            PID_x_filter = PID_X.define_filtered_output(PID_X.getError(), PID_X.getIntegralError(),
-                                                        filter_deriv_error_x)
-            PID_y_filter = PID_Y.define_filtered_output(PID_Y.getError(), PID_Y.getIntegralError(),
-                                                        filter_deriv_error_y)
-            output_x = PID_x_filter
-            output_y = PID_y_filter
+            output_x = PID_X.define_filtered_output(PID_X.getError(), PID_X.getIntegralError(),
+                                                    filter_deriv_error_x)
+            output_y = PID_Y.define_filtered_output(PID_Y.getError(), PID_Y.getIntegralError(),
+                                                    filter_deriv_error_y)
 
-        servo_ang1, servo_ang2, servo_ang3 = ballpos_to_servo_angle(output_x, output_y)  # Ballpos to servo angle
+        servo_ang1, servo_ang2, servo_ang3 = ballpos_to_servo_angle(output_x, output_y)  # Ball-pos to servo angle
         write_servo(servo_ang1, servo_ang2, servo_ang3)  # Servo angle to arduino
         save_data(pos_x, pos_y, PID_X.getSetpoint(), PID_Y.getSetpoint(), PID_X.getError(), PID_Y.getError(), output_x,
                   output_y, plot)
